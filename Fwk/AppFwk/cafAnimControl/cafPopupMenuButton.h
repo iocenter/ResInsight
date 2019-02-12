@@ -55,7 +55,7 @@ public:
                 ToolButtonPopupMode popupMode = InstantPopup);
 
     void addWidget(QWidget* widget, int stretch = 0, Qt::Alignment alignment = Qt::Alignment());
-
+    void addAction(QAction* action);
 private:    
     QPointer<QBoxLayout> m_layout;
 };

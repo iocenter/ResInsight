@@ -45,8 +45,8 @@ using namespace caf;
 //--------------------------------------------------------------------------------------------------
 
 PopupMenuButton::PopupMenuButton(QWidget* parentWidget,
-                         Qt::Orientation orientation /*= Qt::Horizontal*/, 
-                         ToolButtonPopupMode popupMode /*=InstantPopup*/)
+                                 Qt::Orientation orientation /*= Qt::Horizontal*/, 
+                                 ToolButtonPopupMode popupMode /*=InstantPopup*/)
     : QToolButton(parentWidget)
 {
     if (orientation == Qt::Horizontal)
@@ -73,4 +73,16 @@ PopupMenuButton::PopupMenuButton(QWidget* parentWidget,
 void caf::PopupMenuButton::addWidget(QWidget* widget, int stretch, Qt::Alignment alignment)
 {
     m_layout->addWidget(widget, stretch, alignment);
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void caf::PopupMenuButton::addAction(QAction* action)
+{
+    QToolButton* button = new QToolButton(this);
+    button->setDefaultAction(action);
+    button->setIconSize(QSize(24, 24));
+    button->setStyleSheet("QToolButton:!hover { border: none; }");
+    m_layout->addWidget(button);
 }

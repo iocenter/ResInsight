@@ -70,6 +70,7 @@
 #include "cafPdmUiPropertyView.h"
 #include "cafPdmUiPropertyViewDialog.h"
 #include "cafPdmUiTreeView.h"
+#include "cafPopupMenuButton.h"
 #include "cafQTreeViewStateSerializer.h"
 #include "cafSelectionManager.h"
 #include "cafUtils.h"
@@ -573,17 +574,26 @@ void RiuMainWindow::createToolBars()
 
 
     // View toolbar
-    {
+    {        
         QToolBar* toolbar = addToolBar(tr("View"));
         toolbar->setObjectName(toolbar->windowTitle());
         toolbar->addAction(cmdFeatureMgr->action("RicTogglePerspectiveViewFeature"));
         toolbar->addAction(cmdFeatureMgr->action("RicViewZoomAllFeature"));
-        toolbar->addAction(m_viewFromNorth);
-        toolbar->addAction(m_viewFromSouth);
-        toolbar->addAction(m_viewFromEast);
-        toolbar->addAction(m_viewFromWest);
-        toolbar->addAction(m_viewFromAbove);
-        toolbar->addAction(m_viewFromBelow);
+
+        caf::PopupMenuButton* viewPopup = new caf::PopupMenuButton(toolbar, Qt::Horizontal, QToolButton::InstantPopup);
+        viewPopup->setIcon(QIcon(":/ViewArrow.png"));
+        viewPopup->setToolTip("View from a Direction");
+        viewPopup->addAction(m_viewFromNorth);
+        viewPopup->addAction(m_viewFromSouth);
+        viewPopup->addAction(m_viewFromEast);
+        viewPopup->addAction(m_viewFromWest);
+        viewPopup->addAction(m_viewFromAbove);
+        viewPopup->addAction(m_viewFromBelow);
+        toolbar->addWidget(viewPopup);
+
+        QAction* separator1 = new QAction(this);
+        separator1->setSeparator(true);
+        toolbar->addAction(separator1);
 
         QLabel* scaleLabel = new QLabel(toolbar);
         scaleLabel->setText("Scale");

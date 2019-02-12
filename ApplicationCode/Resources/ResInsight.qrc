@@ -2,6 +2,7 @@
   <qresource prefix="/">
     <file>AppLogo48x48.png</file>
     <file>Default.png</file>
+	<file>ViewArrow.png</file>
     <file>NorthViewArrow.png</file>
     <file>SouthViewArrow.png</file>
     <file>EastViewArrow.png</file>
