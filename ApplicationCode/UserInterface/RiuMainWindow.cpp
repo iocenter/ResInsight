@@ -580,7 +580,7 @@ void RiuMainWindow::createToolBars()
         toolbar->addAction(cmdFeatureMgr->action("RicTogglePerspectiveViewFeature"));
         toolbar->addAction(cmdFeatureMgr->action("RicViewZoomAllFeature"));
 
-        caf::PopupMenuButton* viewPopup = new caf::PopupMenuButton(toolbar, Qt::Horizontal, QToolButton::InstantPopup);
+        caf::PopupMenuButton* viewPopup = new caf::PopupMenuButton(toolbar, Qt::Horizontal);
         viewPopup->setIcon(QIcon(":/ViewArrow.png"));
         viewPopup->setToolTip("View from a Direction");
         viewPopup->addAction(m_viewFromNorth);
@@ -612,10 +612,19 @@ void RiuMainWindow::createToolBars()
         dsToolBar->addAction(m_drawStyleLinesSolidAction);
         dsToolBar->addAction(m_drawStyleSurfOnlyAction);
         dsToolBar->addAction(m_drawStyleFaultLinesSolidAction);
-        dsToolBar->addAction(m_disableLightingAction);
-        dsToolBar->addAction(m_drawStyleHideGridCellsAction);
-        dsToolBar->addAction(m_toggleFaultsLabelAction);
-        dsToolBar->addAction(m_showWellCellsAction);
+
+        QAction* separator1 = new QAction(this);
+        separator1->setSeparator(true);
+        dsToolBar->addAction(separator1);
+        
+        caf::PopupMenuButton* drawStylePopup = new caf::PopupMenuButton(dsToolBar, Qt::Vertical);
+        drawStylePopup->addAction(m_disableLightingAction);
+        drawStylePopup->setIcon(QIcon(":/draw_style_faults_24x24.png"));
+        drawStylePopup->setToolTip("Change Advanced Draw Style Options");
+        drawStylePopup->addAction(m_drawStyleHideGridCellsAction);
+        drawStylePopup->addAction(m_toggleFaultsLabelAction);
+        drawStylePopup->addAction(m_showWellCellsAction);
+        dsToolBar->addWidget(drawStylePopup);
     }
 
     {
