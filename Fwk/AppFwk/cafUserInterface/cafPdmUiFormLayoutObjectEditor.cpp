@@ -49,6 +49,7 @@
 
 #include "QMinimizePanel.h"
 
+#include <QDebug>
 #include <QGridLayout>
 #include <QFrame>
 
@@ -226,7 +227,11 @@ void caf::PdmUiFormLayoutObjectEditor::recursivelyConfigureAndUpdateUiOrderingIn
                 }
             }
         }
+
+        CAF_ASSERT(currentColumn <= totalColumns);
+
         int stretchFactor = currentRowIndex == totalRows - 1 ? 1 : 0;
+        qDebug() << "Stretch Factor: " << stretchFactor;
         parentLayout->setRowStretch(currentRowIndex, stretchFactor);
     }
 }
@@ -295,6 +300,7 @@ QMinimizePanel* caf::PdmUiFormLayoutObjectEditor::findOrCreateGroupBox(QWidget* 
         groupBox->setTitle(group->uiName(uiConfigName));
         groupBox->setObjectName(group->keyword());
         groupBoxLayout = new QGridLayout();
+        
         if (!group->enableFrame())
         {
             groupBoxLayout->setContentsMargins(0, 0, 0, 0);
