@@ -43,6 +43,7 @@
 #include "cafPdmUiTableViewDelegate.h"
 #include "cafPdmUiTableViewQModel.h"
 #include "cafSelectionManager.h"
+#include "cafQShortenedLabel.h"
 
 #include <QApplication>
 #include <QEvent>
@@ -115,7 +116,7 @@ QWidget* PdmUiTableViewEditor::createLabelWidget(QWidget * parent)
 {
     if (m_tableHeading.isNull())
     {
-        m_tableHeading = new QLabel(parent);
+        m_tableHeading = new QShortenedLabel(parent);
     }
 
     if (m_tableHeadingIcon.isNull())
@@ -321,6 +322,13 @@ void PdmUiTableViewEditor::onSelectionManagerSelectionChanged( const std::set<in
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool PdmUiTableViewEditor::isMultiRowEditor() const
+{
+    return true;
+}
 
 //--------------------------------------------------------------------------------------------------
 /// NOTE: If no selection role is defined, the selection manager is not changed, the selection in the 

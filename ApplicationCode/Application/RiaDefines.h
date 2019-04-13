@@ -58,6 +58,13 @@ namespace RiaDefines
         PACKER,
         UNDEFINED_COMPONENT
     };
+   
+    enum MeshModeType
+    {
+        FULL_MESH,
+        FAULTS_MESH,
+        NO_MESH
+    };
 
     bool isPerCellFaceResult(const QString& resultName);
     bool isNativeCategoryResult(const QString& resultName);
@@ -72,6 +79,8 @@ namespace RiaDefines
 
     QString ternarySaturationResultName();
     QString combinedMultResultName();
+
+    QString eqlnumResultName();
 
     QString riTranXResultName();
     QString riTranYResultName();
@@ -135,6 +144,7 @@ namespace RiaDefines
     };
 
     double minimumDefaultValuePlot();
+    double minimumDefaultLogValuePlot();
     double maximumDefaultValuePlot();
 
     enum PhaseType {
@@ -142,5 +152,31 @@ namespace RiaDefines
         GAS_PHASE,
         WATER_PHASE
     };
+
+    enum ImportFileType
+    {
+        NOT_A_VALID_IMPORT_FILE = 0x00,
+        ECLIPSE_GRID_FILE       = 0x01,
+        ECLIPSE_EGRID_FILE      = 0x02,
+        ECLIPSE_INPUT_FILE      = 0x04,
+        ECLIPSE_SUMMARY_FILE    = 0x08,
+        GEOMECH_ODB_FILE        = 0x10,
+        RESINSIGHT_PROJECT_FILE = 0x20,
+        ECLIPSE_RESULT_GRID     = ECLIPSE_GRID_FILE | ECLIPSE_EGRID_FILE,
+        ANY_ECLIPSE_FILE        = ECLIPSE_RESULT_GRID | ECLIPSE_INPUT_FILE | ECLIPSE_SUMMARY_FILE,
+        ANY_IMPORT_FILE         = 0xFF
+    };
+
+    ImportFileType obtainFileTypeFromFileName(const QString& fileName);
+    QString        defaultDirectoryLabel(ImportFileType fileTypes);
+
+    enum FontSettingType
+    {
+        SCENE_FONT,
+        ANNOTATION_FONT,
+        WELL_LABEL_FONT,
+        PLOT_FONT
+    };
+
 };
 

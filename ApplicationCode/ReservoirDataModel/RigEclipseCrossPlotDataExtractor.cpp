@@ -17,25 +17,148 @@
 /////////////////////////////////////////////////////////////////////////////////
 #include "RigEclipseCrossPlotDataExtractor.h"
 
-#include "RigEclipseCaseData.h"
-#include "RigCaseCellResultsData.h"
-#include "RigEclipseResultAddress.h"
+#include "RiaQDateTimeTools.h"
+
 #include "RigActiveCellInfo.h"
+#include "RigActiveCellsResultAccessor.h"
+#include "RigCaseCellResultsData.h"
+#include "RigEclipseCaseData.h"
+#include "RigEclipseResultAddress.h"
+#include "RigEclipseResultBinSorter.h"
+#include "RigFormationNames.h"
+#include "RigMainGrid.h"
+
+#include <memory>
+#include <set>
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-std::vector<std::pair<double, double>> RigEclipseCrossPlotDataExtractor::extract(RigEclipseCaseData*            caseData,
-                                                                                 int                            timeStep,
-                                                                                 const RigEclipseResultAddress& xAxisProperty,
-                                                                                 const RigEclipseResultAddress& yAxisProperty)
+RigEclipseCrossPlotResult RigEclipseCrossPlotDataExtractor::extract(RigEclipseCaseData*            caseData,
+                                                                    int                            resultTimeStep,
+                                                                    const RigEclipseResultAddress& xAddress,
+                                                                    const RigEclipseResultAddress& yAddress,
+                                                                    RigGridCrossPlotCurveGrouping  groupingType,
+                                                                    const RigEclipseResultAddress& groupAddress,
+                                                                    std::map<int, cvf::UByteArray> timeStepCellVisibilityMap)
 {
-    RigCaseCellResultsData* resultData = caseData->results(RiaDefines::MATRIX_MODEL);
-    std::vector<double> xValues = resultData->cellScalarResults(xAxisProperty)[timeStep];
-    std::vector<double> yValues = resultData->cellScalarResults(xAxisProperty)[timeStep];
-    size_t reservoirCellIndex = m_grid->reservoirCellIndex(gridLocalCellIndex);
-    size_t resultValueIndex   = m_activeCellInfo->cellResultIndex(reservoirCellIndex);
-    if (resultValueIndex == cvf::UNDEFINED_SIZE_T) return HUGE_VAL;
+    RigEclipseCrossPlotResult result;
 
-    if (resultValueIndex < m_reservoirResultValues->size()) return m_reservoirResultValues->at(resultValueIndex);
+    RigCaseCellResultsData* resultData = caseData->results(RiaDefines::MATRIX_MODEL);
+    if (!resultData) return result;
+
+    RigFormationNames* activeFormationNames = resultData->activeFormationNames();
+
+    std::unique_ptr<RigEclipseResultBinSorter> catBinSorter;
+    const std::vector<std::vector<double>>*    catValuesForAllSteps = nullptr;
+
+    if (xAddress.isValid() && yAddress.isValid())
+    {
+        RigActiveCellInfo* activeCellInfo = resultData->activeCellInfo();
+        const RigMainGrid* mainGrid       = caseData->mainGrid();
+
+        if (!resultData->ensureKnownResultLoaded(xAddress))
+        {
+            return result;
+        }
+
+        if (!resultData->ensureKnownResultLoaded(yAddress))
+        {
+            return result;
+        }
+
+        const std::vector<std::vector<double>>& xValuesForAllSteps = resultData->cellScalarResults(xAddress);
+        const std::vector<std::vector<double>>& yValuesForAllSteps = resultData->cellScalarResults(yAddress);
+
+        if (groupingType == GROUP_BY_RESULT && groupAddress.isValid())
+        {
+            if (resultData->ensureKnownResultLoaded(groupAddress))
+            {
+                catValuesForAllSteps = &resultData->cellScalarResults(groupAddress);
+            }
+        }
+
+        std::set<int> timeStepsToInclude;
+        if (resultTimeStep == -1)
+        {
+            size_t nStepsInData = std::max(xValuesForAllSteps.size(), yValuesForAllSteps.size());
+            bool   xValid       = xValuesForAllSteps.size() == 1u || xValuesForAllSteps.size() == nStepsInData;
+            bool   yValid       = yValuesForAllSteps.size() == 1u || yValuesForAllSteps.size() == nStepsInData;
+
+            if (!(xValid && yValid)) return result;
+
+            for (size_t i = 0; i < nStepsInData; ++i)
+            {
+                timeStepsToInclude.insert((int)i);
+            }
+        }
+        else
+        {
+            timeStepsToInclude.insert(static_cast<size_t>(resultTimeStep));
+        }
+
+        for (int timeStep : timeStepsToInclude)
+        {
+            const cvf::UByteArray* cellVisibility = nullptr;
+            if (timeStepCellVisibilityMap.count(timeStep))
+            {
+                cellVisibility = &timeStepCellVisibilityMap[timeStep];
+            }
+
+            int xIndex = timeStep >= (int)xValuesForAllSteps.size() ? 0 : timeStep;
+            int yIndex = timeStep >= (int)yValuesForAllSteps.size() ? 0 : timeStep;
+
+            RigActiveCellsResultAccessor                  xAccessor(mainGrid, &xValuesForAllSteps[xIndex], activeCellInfo);
+            RigActiveCellsResultAccessor                  yAccessor(mainGrid, &yValuesForAllSteps[yIndex], activeCellInfo);
+            std::unique_ptr<RigActiveCellsResultAccessor> catAccessor;
+            if (catValuesForAllSteps)
+            {
+                int catIndex = timeStep >= (int)catValuesForAllSteps->size() ? 0 : timeStep;
+                catAccessor.reset(
+                    new RigActiveCellsResultAccessor(mainGrid, &(catValuesForAllSteps->at(catIndex)), activeCellInfo));
+            }
+
+            for (size_t globalCellIdx = 0; globalCellIdx < activeCellInfo->reservoirCellCount(); ++globalCellIdx)
+            {
+                if (cellVisibility && !(*cellVisibility)[globalCellIdx]) continue;
+
+                double xValue = xAccessor.cellScalarGlobIdx(globalCellIdx);
+                double yValue = yAccessor.cellScalarGlobIdx(globalCellIdx);
+
+                if (xValue == HUGE_VAL || yValue == HUGE_VAL) continue;
+
+                result.xValues.push_back(xValue);
+                result.yValues.push_back(yValue);
+
+                if (groupingType == GROUP_BY_TIME)
+                {
+                    result.groupValuesDiscrete.push_back(timeStep);
+                }
+                else if (groupingType == GROUP_BY_FORMATION)
+                {
+                    if (activeFormationNames)
+                    {
+                        int category = 0;
+                        size_t i(cvf::UNDEFINED_SIZE_T), j(cvf::UNDEFINED_SIZE_T), k(cvf::UNDEFINED_SIZE_T);
+                        if (mainGrid->ijkFromCellIndex(globalCellIdx, &i, &j, &k))
+                        {
+                            category = activeFormationNames->formationIndexFromKLayerIdx(k);
+                        }
+                        result.groupValuesDiscrete.push_back(category);
+                    }
+                }
+                else if (groupingType == GROUP_BY_RESULT)
+                {
+                    double catValue = HUGE_VAL;
+                    if (catAccessor)
+                    {
+                        catValue = catAccessor->cellScalarGlobIdx(globalCellIdx);
+                    }
+                    result.groupValuesContinuous.push_back(catValue);
+                }
+            }
+        }
+    }
+
+    return result;
 }

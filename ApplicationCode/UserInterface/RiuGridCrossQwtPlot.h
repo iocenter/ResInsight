@@ -15,39 +15,66 @@
 //  for more details.
 //
 /////////////////////////////////////////////////////////////////////////////////
-
 #pragma once
 
 #include "RiuInterfaceToViewWindow.h"
+#include "RiuPlotAnnotationTool.h"
+#include "RiuQwtPlot.h"
 
 #include "cafPdmPointer.h"
 
-#include "qwt_plot.h"
-
 #include <QPointer>
 
-class RimGridCrossPlot;
+#include <memory>
+
+class RimGridCrossPlotDataSet;
+class RimPlotAxisProperties;
+class RiuCvfOverlayItemWidget;
+class RiuDraggableOverlayFrame;
+class RiuPlotAnnotationTool;
+
+namespace caf
+{
+class TitledOverlayFrame;
+}
 
 //==================================================================================================
 //
 //
 //
 //==================================================================================================
-class RiuGridCrossQwtPlot : public QwtPlot, public RiuInterfaceToViewWindow
+class RiuGridCrossQwtPlot : public RiuQwtPlot
 {
     Q_OBJECT;
 
 public:
-    RiuGridCrossQwtPlot(RimGridCrossPlot* plotDefinition, QWidget* parent = nullptr);
-    ~RiuGridCrossQwtPlot() override;
-
-    RimGridCrossPlot* ownerPlotDefinition();
-    RimViewWindow*    ownerViewWindow() const override;
+    RiuGridCrossQwtPlot(RimViewWindow* ownerViewWindow, QWidget* parent = nullptr);
+    ~RiuGridCrossQwtPlot();
+    void addOrUpdateDataSetLegend(RimGridCrossPlotDataSet* dataSetToShowLegendFor);
+    void removeDataSetLegend(RimGridCrossPlotDataSet* dataSetToShowLegendFor);
+    void updateLegendSizesToMatchPlot();
+    void updateAnnotationObjects(RimPlotAxisProperties* axisProperties);
 
 protected:
-    QSize sizeHint() const override;
-    QSize minimumSizeHint() const override;
+    void updateLayout() override;
+    void updateInfoBoxLayout();
+    void updateLegendLayout();
+    void resizeEvent(QResizeEvent* e) override;
+    bool resizeOverlayItemToFitPlot(caf::TitledOverlayFrame* overlayItem);
+    void contextMenuEvent(QContextMenuEvent*) override;
+
+    void selectSample(QwtPlotCurve* curve, int sampleNumber) override;
+    void clearSampleSelection() override;
+    bool curveText(const QwtPlotCurve* curve, QString* curveTitle, QString* xParamName, QString* yParamName) const;
+    void applyFontSizeToOverlayItem(caf::TitledOverlayFrame* overlayItem);
 private:
-    caf::PdmPointer<RimGridCrossPlot> m_plotDefinition;
+    typedef caf::PdmPointer<RimGridCrossPlotDataSet> DataSetPtr;
+    typedef QPointer<RiuCvfOverlayItemWidget> LegendPtr;
+    typedef QPointer<RiuDraggableOverlayFrame> InfoBoxPtr;
+
+    InfoBoxPtr                             m_infoBox;
+    std::map<DataSetPtr, LegendPtr>        m_legendWidgets;
+    std::unique_ptr<RiuPlotAnnotationTool> m_annotationTool;
+    QwtPlotMarker*                         m_selectedPointMarker;
 
 };

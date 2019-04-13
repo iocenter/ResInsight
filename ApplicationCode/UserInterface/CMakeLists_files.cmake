@@ -12,6 +12,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuRimQwtPlotCurve.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuPlotMainWindow.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMainWindow.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMainWindowBase.h
+${CMAKE_CURRENT_LIST_DIR}/RiuMdiArea.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMdiSubWindow.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMultiCaseImportDialog.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuProcessMonitor.h
@@ -36,6 +37,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuRmsNavigation.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuSelectionChangedHandler.h
 ${CMAKE_CURRENT_LIST_DIR}/Riu3dSelectionManager.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuSimpleHistogramWidget.h
+${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuGridCrossQwtPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuSummaryQwtPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuTextDialog.h
@@ -53,7 +55,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuPlotAnnotationTool.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuGeoMechXfTensorResultAccessor.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuFemTimeHistoryResultAccessor.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuEditPerforationCollectionWidget.h
-${CMAKE_CURRENT_LIST_DIR}/RiuExportMultipleSnapshotsWidget.h
+${CMAKE_CURRENT_LIST_DIR}/RiuAdvancedSnapshotExportWidget.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellAllocationPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellRftPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellPltPlot.h
@@ -79,6 +81,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlotItemGroup.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlotTools.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellPathComponentPlotItem.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMeasurementViewEventFilter.h
+${CMAKE_CURRENT_LIST_DIR}/RiuDraggableOverlayFrame.h
 )
 
 set (SOURCE_GROUP_SOURCE_FILES
@@ -94,6 +97,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuRimQwtPlotCurve.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuPlotMainWindow.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuMainWindow.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuMainWindowBase.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiuMdiArea.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuMdiSubWindow.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuMultiCaseImportDialog.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuProcessMonitor.cpp
@@ -117,6 +121,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuRmsNavigation.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuSelectionChangedHandler.cpp
 ${CMAKE_CURRENT_LIST_DIR}/Riu3dSelectionManager.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuSimpleHistogramWidget.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlot.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuGridCrossQwtPlot.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuSummaryQwtPlot.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuTextDialog.cpp
@@ -133,7 +138,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuPlotAnnotationTool.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuGeoMechXfTensorResultAccessor.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuFemTimeHistoryResultAccessor.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuEditPerforationCollectionWidget.cpp
-${CMAKE_CURRENT_LIST_DIR}/RiuExportMultipleSnapshotsWidget.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiuAdvancedSnapshotExportWidget.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellAllocationPlot.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellRftPlot.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellPltPlot.cpp
@@ -157,6 +162,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuDockWidgetTools.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlotItemGroup.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlotTools.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellPathComponentPlotItem.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiuDraggableOverlayFrame.cpp
 )
 
 list(APPEND CODE_HEADER_FILES
@@ -171,6 +177,8 @@ list(APPEND QT_MOC_HEADERS
 ${CMAKE_CURRENT_LIST_DIR}/RiuMainWindowBase.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMainWindow.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuPlotMainWindow.h
+${CMAKE_CURRENT_LIST_DIR}/RiuMdiArea.h
+${CMAKE_CURRENT_LIST_DIR}/RiuMdiSubWindow.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuPvtPlotPanel.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuRelativePermeabilityPlotPanel.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuResultInfoPanel.h
@@ -184,6 +192,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuTreeViewEventFilter.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellLogPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellLogTrack.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuRecentFileActionProvider.h
+${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuGridCrossQwtPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuSummaryQwtPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuTofAccumulatedPhaseFractionsPlot.h
@@ -192,7 +201,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuQwtPlotWheelZoomer.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWidgetDragger.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuCvfOverlayItemWidget.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuEditPerforationCollectionWidget.h
-${CMAKE_CURRENT_LIST_DIR}/RiuExportMultipleSnapshotsWidget.h
+${CMAKE_CURRENT_LIST_DIR}/RiuAdvancedSnapshotExportWidget.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellAllocationPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellRftPlot.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuWellPltPlot.h
@@ -202,6 +211,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RiuMessagePanel.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuExpressionContextMenuManager.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuCalculationsContextMenuManager.h
 ${CMAKE_CURRENT_LIST_DIR}/RiuMohrsCirclePlot.h
+${CMAKE_CURRENT_LIST_DIR}/RiuDraggableOverlayFrame.h
 )
 
 list(APPEND QT_UI_FILES

@@ -71,6 +71,7 @@ void RicDeletePolylineTargetFeature::setupActionLook(QAction* actionToSetup)
 {
     actionToSetup->setText("Delete Target");
     actionToSetup->setIcon(QIcon(":/Erase.png"));
+    applyShortcutWithHintToAction(actionToSetup, QKeySequence::Delete);
 }
 
 

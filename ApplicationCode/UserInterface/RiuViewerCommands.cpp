@@ -354,6 +354,7 @@ void RiuViewerCommands::displayContextMenu(QMouseEvent* event)
             }
             
             menuBuilder << "RicToggleMeasurementModeFeature";
+            menuBuilder << "RicTogglePolyMeasurementModeFeature";
         }
     }
 
@@ -409,12 +410,15 @@ void RiuViewerCommands::displayContextMenu(QMouseEvent* event)
                 menuBuilder.subMenuEnd();
 
                 menuBuilder.addSeparator();
-                menuBuilder << "RicNewWellPathAttributeFeature";
-                menuBuilder.subMenuStart("Completions", QIcon(":/FishBoneGroup16x16.png"));
+                menuBuilder.subMenuStart("Create Completions", QIcon(":/FishBoneGroup16x16.png"));
 
                 menuBuilder << "RicNewPerforationIntervalAtMeasuredDepthFeature";
                 menuBuilder << "RicNewFishbonesSubsAtMeasuredDepthFeature";
                 menuBuilder << "RicNewWellPathFractureAtPosFeature";
+                menuBuilder.addSeparator();
+                menuBuilder << "RicNewWellPathAttributeFeature";
+                menuBuilder << "RicWellPathImportCompletionsFileFeature";
+
 
                 menuBuilder.subMenuEnd();
 
@@ -490,6 +494,12 @@ void RiuViewerCommands::displayContextMenu(QMouseEvent* event)
         menuBuilder.addSeparator();
         menuBuilder << "RicNewGridTimeHistoryCurveFeature";
         menuBuilder << "RicShowFlowCharacteristicsPlotFeature";
+        if (dynamic_cast<RimEclipseView*>(gridView))
+        {
+            menuBuilder << "RicCreateGridCrossPlotFeature";
+        }
+        menuBuilder.addSeparator();
+        menuBuilder << "RicExportEclipseInputGridFeature";
         menuBuilder << "RicSaveEclipseInputActiveVisibleCellsFeature";
         menuBuilder << "RicShowGridStatisticsFeature";
         menuBuilder << "RicSelectColorResult";

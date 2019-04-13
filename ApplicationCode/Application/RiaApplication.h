@@ -58,6 +58,7 @@ class RimViewWindow;
 class RimWellLogPlot;
 class RimWellAllocationPlot;
 
+class RiuMainWindow;
 class RiuMainWindowBase;
 class RiuPlotMainWindow;
 class RiuRecentFileActionProvider;
@@ -166,10 +167,11 @@ public:
     void                waitForProcess() const;
     
     RiaPreferences*     preferences();
-    void                applyPreferences();
+    void                applyPreferences(const RiaPreferences* oldPreferences = nullptr);
 
-    cvf::Font*          standardFont();
-    cvf::Font*          customFont();
+    cvf::Font*          defaultSceneFont();
+    cvf::Font*          defaultAnnotationFont();
+    cvf::Font*          defaultWellLabelFont();
 
     QString             commandLineParameterHelp() const;
     void                showFormattedTextInMessageBox(const QString& text);
@@ -183,6 +185,9 @@ public:
     int                 launchUnitTests();
     int                 launchUnitTestsWithConsole();
 
+    RiuMainWindow*      getOrCreateAndShowMainWindow();
+    RiuMainWindow*      mainWindow();
+
     RiuPlotMainWindow*  getOrCreateMainPlotWindow();
     RiuPlotMainWindow*  getOrCreateAndShowMainPlotWindow();
     RiuPlotMainWindow*  mainPlotWindow();
@@ -193,8 +198,8 @@ public:
     bool                isMain3dWindowVisible() const;
     bool                isMainPlotWindowVisible() const;
 
-    bool                tryCloseMainWindow();
-    bool                tryClosePlotWindow();
+    void                closeMainWindowIfOpenButHidden();
+    void                closeMainPlotWindowIfOpenButHidden();
 
     void                  addToRecentFiles(const QString& fileName);
     std::vector<QAction*> recentFileActions() const;
@@ -204,7 +209,8 @@ public:
     static std::vector<QString> readFileListFromTextFile(QString listFileName);
 
     void                waitUntilCommandObjectsHasBeenProcessed();
-    void                saveWinGeoAndDockToolBarLayout();
+    void                saveMainWinGeoAndDockToolBarLayout();
+    void                savePlotWinGeoAndDockToolBarLayout();
 
     static bool         enableDevelopmentFeatures();
     static void         clearAllSelections();
@@ -212,6 +218,9 @@ public:
 private:
     void                onProjectOpenedOrClosed();
     void                setWindowCaptionFromAppState();
+
+    void                createMainWindow();
+    void                deleteMainWindow();
 
     void                createMainPlotWindow();
     void                deleteMainPlotWindow();
@@ -246,8 +255,9 @@ private:
     std::map<QString, QString>          m_fileDialogDefaultDirectories;
     QString                             m_startupDefaultDirectory;
 
-    cvf::ref<cvf::Font>                 m_standardFont;
-    cvf::ref<cvf::Font>                 m_customFont;
+    cvf::ref<cvf::Font>                 m_defaultSceneFont;
+    cvf::ref<cvf::Font>                 m_defaultAnnotationFont;
+    cvf::ref<cvf::Font>                 m_defaultWellLabelFont;
 
     QMap<QString, QVariant>             m_sessionCache;     // Session cache used to store username/passwords per session
 
@@ -258,6 +268,7 @@ private:
 
     bool                                m_runningWorkerProcess;
 
+    RiuMainWindow*                      m_mainWindow;
     RiuPlotMainWindow*                  m_mainPlotWindow;
     
     std::unique_ptr<RiuRecentFileActionProvider> m_recentFileActionProvider;

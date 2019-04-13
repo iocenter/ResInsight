@@ -30,10 +30,9 @@
 #include "RigEclipseCaseData.h"
 #include "RigGridBase.h"
 
+#include "RimAdvancedSnapshotExportDefinition.h"
 #include "RimAnnotationCollection.h"
 #include "RimAnnotationInViewCollection.h"
-#include "RimPolylinesFromFileAnnotation.h"
-#include "RimUserDefinedPolylinesAnnotation.h"
 #include "RimCalcScript.h"
 #include "RimCase.h"
 #include "RimCaseCollection.h"
@@ -47,27 +46,30 @@
 #include "RimFormationNamesCollection.h"
 #include "RimFractureTemplate.h"
 #include "RimFractureTemplateCollection.h"
-#include "RimGridCrossPlotCollection.h"
-#include "RimValveTemplate.h"
-#include "RimValveTemplateCollection.h"
 #include "RimGeoMechCase.h"
 #include "RimGeoMechModels.h"
+#include "RimGridCrossPlotCollection.h"
 #include "RimGridSummaryCase.h"
 #include "RimGridView.h"
 #include "RimIdenticalGridCaseGroup.h"
 #include "RimMainPlotCollection.h"
 #include "RimMeasurement.h"
-#include "RimMultiSnapshotDefinition.h"
+#include "RimObservedData.h"
 #include "RimObservedDataCollection.h"
 #include "RimOilField.h"
 #include "RimPltPlotCollection.h"
+#include "RimPolylinesFromFileAnnotation.h"
 #include "RimRftPlotCollection.h"
+#include "RimSaturationPressurePlotCollection.h"
 #include "RimScriptCollection.h"
 #include "RimSummaryCalculationCollection.h"
 #include "RimSummaryCaseMainCollection.h"
 #include "RimSummaryCrossPlotCollection.h"
 #include "RimSummaryPlotCollection.h"
 #include "RimTools.h"
+#include "RimUserDefinedPolylinesAnnotation.h"
+#include "RimValveTemplate.h"
+#include "RimValveTemplateCollection.h"
 #include "RimViewLinker.h"
 #include "RimViewLinkerCollection.h"
 #include "RimWellLogFile.h"
@@ -147,6 +149,12 @@ RimProject::RimProject(void)
 
     CAF_PDM_InitField(&m_showPlotWindow, "showPlotWindow", false, "Show Plot Window", "", "", "");
     m_showPlotWindow.uiCapability()->setUiHidden(true);
+
+    CAF_PDM_InitField(&m_subWindowsTiled3DWindow, "tiled3DWindow", false, "Tile 3D Window", "", "", "");
+    m_subWindowsTiled3DWindow.uiCapability()->setUiHidden(true);
+
+    CAF_PDM_InitField(&m_subWindowsTiledPlotWindow, "tiledPlotWindow", false, "Tile Plot Window", "", "", "");
+    m_subWindowsTiledPlotWindow.uiCapability()->setUiHidden(true);
 
     CAF_PDM_InitFieldNoDefault(&m_dialogData, "DialogData", "DialogData", "", "", "");
     m_dialogData = new RimDialogData();
@@ -851,6 +859,38 @@ bool RimProject::showPlotWindow() const
 }
 
 //--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimProject::subWindowsTiled3DWindow() const
+{
+    return m_subWindowsTiled3DWindow;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimProject::subWindowsTiledPlotWindow() const
+{
+    return m_subWindowsTiledPlotWindow;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimProject::setSubWindowsTiledIn3DWindow(bool tiled)
+{
+    m_subWindowsTiled3DWindow = tiled;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimProject::setSubWindowsTiledInPlotWindow(bool tiled)
+{
+    m_subWindowsTiledPlotWindow = tiled;
+}
+
+//--------------------------------------------------------------------------------------------------
 /// 
 //--------------------------------------------------------------------------------------------------
 void RimProject::reloadCompletionTypeResultsInAllViews()
@@ -1245,6 +1285,11 @@ void RimProject::defineUiTreeOrdering(caf::PdmUiTreeOrdering& uiTreeOrdering, QS
             if (mainPlotCollection->gridCrossPlotCollection())
             {
                 itemCollection->add(mainPlotCollection->gridCrossPlotCollection());
+            }
+
+            if (mainPlotCollection->saturationPressurePlotCollection())
+            {
+                itemCollection->add(mainPlotCollection->saturationPressurePlotCollection());
             }
         }
     }

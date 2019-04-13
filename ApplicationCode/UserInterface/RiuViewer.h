@@ -21,15 +21,17 @@
 #pragma once
 
 #include "RiuViewerToViewInterface.h"
-#include "cafViewer.h"
+#include "RiuInterfaceToViewWindow.h"
 
+#include "cafMouseState.h"
 #include "cafPdmObject.h"
 #include "cafPdmPointer.h"
 #include "cafPdmInterfacePointer.h"
+#include "cafViewer.h"
 
-#include "cafMouseState.h"
 #include "cvfStructGrid.h"
-#include "RiuInterfaceToViewWindow.h"
+
+#include <memory>
 
 class RicCommandFeature;
 class Rim3dView;
@@ -38,15 +40,14 @@ class RiuViewerCommands;
 class RivGridBoxGenerator;
 class RivWindowEdgeAxesOverlayItem;
 
-class QCDEStyle;
 class QLabel;
-class QProgressBar;
 
 namespace caf
 {
     class OverlayScaleLegend;
     class TitledOverlayFrame;
     class PdmUiSelection3dEditorVisualizer;
+    class QStyledProgressBar;
 }
 
 namespace cvf
@@ -127,6 +128,11 @@ public:
 
     void            showScaleLegend(bool show);
 
+    static void     setHoverCursor(const QCursor& cursor);
+    static void     clearHoverCursor();
+
+    void            updateFonts();
+
 public slots:
     void            slotSetCurrentFrame(int frameIndex) override;
     void            slotEndAnimation() override;
@@ -134,8 +140,9 @@ public slots:
 protected:
     void            optimizeClippingPlanes() override;
     void            resizeGL(int width, int height) override;
-    void    mouseMoveEvent(QMouseEvent* e) override;
-    void    leaveEvent(QEvent *) override;
+    void            mouseMoveEvent(QMouseEvent* e) override;
+    void            enterEvent(QEvent* e) override;
+    void            leaveEvent(QEvent*) override;
 
 private:
     void            updateLegendLayout();
@@ -145,7 +152,7 @@ private:
     cvf::Color3f    computeContrastColor() const;
 
     void            updateAxisCrossTextColor();
-    void            updateOverlayItemsPalette();
+    void            updateOverlayItemsStyle();
 
     void            paintOverlayItems(QPainter* painter) override;
 
@@ -164,13 +171,10 @@ private:
     bool            m_showZScaleLabel;
     bool            m_hideZScaleCheckbox;
 
-    QProgressBar*   m_animationProgress;
+    caf::QStyledProgressBar*  m_animationProgress;
     bool            m_showAnimProgress; 
     RiuSimpleHistogramWidget* m_histogramWidget;
     bool            m_showHistogram;
-#if QT_VERSION < 0x050000
-    QCDEStyle*      m_progressBarStyle;
-#endif
 
     cvf::ref<cvf::OverlayAxisCross> m_axisCross;
     bool                            m_showAxisCross;
@@ -191,5 +195,7 @@ private:
     bool                        m_isNavigationRotationEnabled;
 
     cvf::ref<caf::OverlayScaleLegend> m_scaleLegend;
+
+    static std::unique_ptr<QCursor>    s_hoverCursor;
 };
 

@@ -151,6 +151,14 @@ void RiuQwtSymbol::renderSymbolLabel(QPainter *painter, const QPointF& position)
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+void RiuQwtSymbol::setLabel(const QString& label)
+{
+    m_label = label;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 void RiuQwtSymbol::setLabelPosition(LabelPosition labelPosition)
 {
     m_labelPosition = labelPosition;
@@ -180,11 +188,13 @@ RiuQwtSymbol::PointSymbolEnum RiuQwtSymbol::cycledSymbolStyle(int indexLevel1, i
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-RiuQwtSymbol::PointSymbolEnum RiuQwtSymbol::cycledFilledSymbolStyle(int indexLevel)
+RiuQwtSymbol::PointSymbolEnum RiuQwtSymbol::cycledSymbolStyle(int indexLevel)
 {
     std::vector<PointSymbolEnum> contrastingSymbols =
     {
-        SYMBOL_ELLIPSE, SYMBOL_RECT };
+        SYMBOL_ELLIPSE, SYMBOL_CROSS, SYMBOL_RECT, SYMBOL_DOWN_TRIANGLE, SYMBOL_UP_TRIANGLE,
+        SYMBOL_LEFT_TRIANGLE, SYMBOL_RIGHT_TRIANGLE, SYMBOL_STAR2, SYMBOL_DIAMOND, SYMBOL_STAR1
+    };
 
     return contrastingSymbols[indexLevel % (int)contrastingSymbols.size()];
 }

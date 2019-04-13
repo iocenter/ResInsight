@@ -88,7 +88,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RimContextCommandBuilder.h
 ${CMAKE_CURRENT_LIST_DIR}/RimGridCollection.h
 ${CMAKE_CURRENT_LIST_DIR}/RimPlotCurve.h
 ${CMAKE_CURRENT_LIST_DIR}/RimIntersectionBox.h
-${CMAKE_CURRENT_LIST_DIR}/RimMultiSnapshotDefinition.h
+${CMAKE_CURRENT_LIST_DIR}/RimAdvancedSnapshotExportDefinition.h
 ${CMAKE_CURRENT_LIST_DIR}/RimMdiWindowController.h
 ${CMAKE_CURRENT_LIST_DIR}/RimPropertyFilter.h
 ${CMAKE_CURRENT_LIST_DIR}/RimNamedObject.h
@@ -127,6 +127,10 @@ ${CMAKE_CURRENT_LIST_DIR}/RimGeoMechContourMapViewCollection.h
 ${CMAKE_CURRENT_LIST_DIR}/RimViewNameConfig.h
 ${CMAKE_CURRENT_LIST_DIR}/RimScaleLegendConfig.h
 ${CMAKE_CURRENT_LIST_DIR}/RimReloadCaseTools.h
+${CMAKE_CURRENT_LIST_DIR}/RimRiuQwtPlotOwnerInterface.h
+${CMAKE_CURRENT_LIST_DIR}/RimPlotAxisPropertiesInterface.h
+${CMAKE_CURRENT_LIST_DIR}/RimPlotAxisProperties.h
+${CMAKE_CURRENT_LIST_DIR}/RimPlotAxisAnnotation.h
 )
 
 
@@ -219,7 +223,7 @@ ${CMAKE_CURRENT_LIST_DIR}/RimContextCommandBuilder.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimGridCollection.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimPlotCurve.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimIntersectionBox.cpp
-${CMAKE_CURRENT_LIST_DIR}/RimMultiSnapshotDefinition.cpp
+${CMAKE_CURRENT_LIST_DIR}/RimAdvancedSnapshotExportDefinition.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimMdiWindowController.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimPropertyFilter.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimNamedObject.cpp
@@ -258,6 +262,9 @@ ${CMAKE_CURRENT_LIST_DIR}/RimGeoMechContourMapViewCollection.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimViewNameConfig.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimScaleLegendConfig.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimReloadCaseTools.cpp
+${CMAKE_CURRENT_LIST_DIR}/RimPlotAxisPropertiesInterface.cpp
+${CMAKE_CURRENT_LIST_DIR}/RimPlotAxisProperties.cpp
+${CMAKE_CURRENT_LIST_DIR}/RimPlotAxisAnnotation.cpp
 )
 
 list(APPEND CODE_HEADER_FILES

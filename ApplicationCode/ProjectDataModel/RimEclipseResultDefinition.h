@@ -70,12 +70,13 @@ public:
     };
 
 public:
-    RimEclipseResultDefinition();
+    RimEclipseResultDefinition(caf::PdmUiItemInfo::LabelPosType labelPosition = caf::PdmUiItemInfo::LEFT);
     ~RimEclipseResultDefinition() override;
 
     void                            simpleCopy(const RimEclipseResultDefinition* other);
 
     void                            setEclipseCase(RimEclipseCase* eclipseCase);
+    RimEclipseCase*                 eclipseCase();
 
     RiaDefines::ResultCatType       resultType() const { return m_resultType(); }
     void                            setResultType(RiaDefines::ResultCatType val);
@@ -99,6 +100,7 @@ public:
 
     void                            loadResult();
     RigEclipseResultAddress         eclipseResultAddress() const;
+    void                            setFromEclipseResultAddress(const RigEclipseResultAddress& resultAddress);
     bool                            hasStaticResult() const;
     bool                            hasDynamicResult() const;
     bool                            hasResult() const;
@@ -121,6 +123,16 @@ public:
     void                            updateUiFieldsFromActiveResult();
 
     void                            setDiffResultOptionsEnabled(bool enabled);
+
+    bool                            hasDualPorFractureResult();
+
+    static QList<caf::PdmOptionItemInfo> calcOptionsForVariableUiFieldStandard(RiaDefines::ResultCatType     resultCatType,
+                                                                               const RigCaseCellResultsData* results,
+                                                                               bool showDerivedResultsFirst   = false,
+                                                                               bool addPerCellFaceOptionItems = false,
+                                                                               bool enableTernary             = false);
+
+    void                            setTernaryEnabled(bool enabled);
 protected:
     virtual void                  updateLegendCategorySettings() {};
 
@@ -179,11 +191,8 @@ private:
 private:
     void                            assignFlowSolutionFromCase();
 
-    bool                            hasDualPorFractureResult();
-
     QString                         flowDiagResUiText(bool shortLabel, int maxTracerStringLength = std::numeric_limits<int>::max()) const;
 
-    QList<caf::PdmOptionItemInfo>   calcOptionsForVariableUiFieldStandard();
     QList<caf::PdmOptionItemInfo>   calcOptionsForSelectedTracerField(bool injector);
     
     QString                         timeOfFlightString(bool shorter) const;
@@ -192,8 +201,7 @@ private:
     QString                         selectedTracersString() const;
 
     void                            changedTracerSelectionField(bool injector);
-    QStringList                     getResultNamesForCurrentUiResultType();
-    static void                     removePerCellFaceOptionItems(QList<caf::PdmOptionItemInfo>& optionItems);
+    static QStringList              getResultNamesForResultType(RiaDefines::ResultCatType resultCatType, const RigCaseCellResultsData* results);
 
     std::vector<QString>            allTracerNames() const;
     std::set<QString, TracerComp>   setOfTracersOfType(bool injector) const;
@@ -210,9 +218,15 @@ private:
     bool                            isCaseDiffResultAvailable() const;
     bool                            isCaseDiffResult() const;
 
+    bool                            showDerivedResultsFirstInVariableUiField() const;
+    bool                            addPerCellFaceOptionsForVariableUiField() const;
+
     void                            ensureProcessingOfObsoleteFields();
+    bool                            isTernaryEnabled() const;
 
 private:
-    bool                            m_diffResultOptionsEnabled;
+    bool                             m_diffResultOptionsEnabled;
+    caf::PdmUiItemInfo::LabelPosType m_labelPosition;
+    bool                             m_ternaryEnabled;
 };
 

@@ -105,7 +105,7 @@ RimWellRftPlot::RimWellRftPlot()
     m_selectedTimeSteps.uiCapability()->setAutoAddingOptionFromValue(false);
 
     this->setAsPlotMdiWindow();
-    m_isOnLoad                                = true;
+    m_isOnLoad = true;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -301,8 +301,10 @@ void RimWellRftPlot::applyInitialSelections()
     m_selectedSources = sourcesToSelect;
 
     {
-        auto relevantTimeSteps = RimWellPlotTools::calculateRelevantTimeStepsFromCases(
-            associatedSimWellName(), m_selectedSources, {RifEclipseRftAddress::PRESSURE});
+        std::set<RifEclipseRftAddress::RftWellLogChannelType> channelTypesToUse = RifEclipseRftAddress::rftPlotChannelTypes();
+
+        auto relevantTimeSteps =
+            RimWellPlotTools::calculateRelevantTimeStepsFromCases(associatedSimWellName(), m_selectedSources, channelTypesToUse);
 
         std::vector<QDateTime> timeStepVector;
         for (const auto& item : relevantTimeSteps)
@@ -411,8 +413,10 @@ void RimWellRftPlot::syncCurvesFromUiSelection()
 //--------------------------------------------------------------------------------------------------
 std::set<RiaRftPltCurveDefinition> RimWellRftPlot::selectedCurveDefs() const
 {
+    std::set<RifEclipseRftAddress::RftWellLogChannelType> channelTypesToUse = RifEclipseRftAddress::rftPlotChannelTypes();
+
     return RimWellPlotTools::curveDefsFromTimesteps(
-        associatedSimWellName(), m_selectedTimeSteps.v(), true, selectedSourcesExpanded());
+        associatedSimWellName(), m_selectedTimeSteps.v(), true, selectedSourcesExpanded(), channelTypesToUse);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -658,8 +662,10 @@ QList<caf::PdmOptionItemInfo> RimWellRftPlot::calculateValueOptions(const caf::P
     }
     else if (fieldNeedingOptions == &m_selectedTimeSteps)
     {
+        std::set<RifEclipseRftAddress::RftWellLogChannelType> channelTypesToUse = RifEclipseRftAddress::rftPlotChannelTypes();
+
         RimWellPlotTools::calculateValueOptionsForTimeSteps(
-            associatedSimWellName(), selectedSourcesExpanded(), {RifEclipseRftAddress::PRESSURE}, options);
+            associatedSimWellName(), selectedSourcesExpanded(), channelTypesToUse, options);
     }
     else if (fieldNeedingOptions == &m_branchIndex)
     {
@@ -850,10 +856,37 @@ void RimWellRftPlot::onLoadDataAndUpdate()
     updateMdiWindowVisibility();
     updateFormationsOnPlot();
 
+    if (m_wellLogPlot->depthType() == RimWellLogPlot::MEASURED_DEPTH)
+    {
+        assignWellPathToExtractionCurves();
+    }
+
     m_wellLogPlot->loadDataAndUpdate();
 
     updateEditorsFromCurves();
     updateWidgetTitleWindowTitle();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimWellRftPlot::assignWellPathToExtractionCurves()
+{
+    RimProject*  proj     = RiaApplication::instance()->project();
+    RimWellPath* wellPath = proj->wellPathByName(m_wellPathNameOrSimWellName);
+
+    if (wellPath)
+    {
+        for (RimWellLogCurve* curve : m_wellLogPlot->trackByIndex(0)->curvesVector())
+        {
+            auto extractionCurve = dynamic_cast<RimWellLogExtractionCurve*>(curve);
+            if (extractionCurve)
+            {
+                extractionCurve->setTrajectoryType(RimWellLogExtractionCurve::WELL_PATH);
+                extractionCurve->setWellPath(wellPath);
+            }
+        }
+    }
 }
 
 //--------------------------------------------------------------------------------------------------

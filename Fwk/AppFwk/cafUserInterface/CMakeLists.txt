@@ -44,6 +44,7 @@ set (MOC_HEADER_FILES
     cafPdmUiTreeViewEditor.h
     cafUiProcess.h
     QMinimizePanel.h
+	cafQStyledProgressBar.h
     cafPdmUiTreeSelectionEditor.h
     cafPdmUiTreeSelectionQModel.h
     cafPdmUiFormLayoutObjectEditor.h
@@ -149,6 +150,8 @@ set( PROJECT_FILES
     cafUiProcess.h
     QMinimizePanel.cpp
     QMinimizePanel.h
+	cafQStyledProgressBar.cpp
+	cafQStyledProgressBar.h
     cafQTreeViewStateSerializer.h
     cafQTreeViewStateSerializer.cpp
     cafMemoryInspector.h
@@ -157,6 +160,8 @@ set( PROJECT_FILES
     cafPdmDoubleStringValidator.cpp
     cafPickEventHandler.h
     cafPdmUiPickableLineEditor.cpp
+	cafStyleSheetTools.h
+	cafStyleSheetTools.cpp
 )
 
 add_library( ${PROJECT_NAME}

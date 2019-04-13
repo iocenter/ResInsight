@@ -21,13 +21,13 @@
 #pragma once
 
 #include "RiuMainWindowBase.h"
+#include "RiuMdiArea.h"
 
 #include "cafPdmUiDragDropInterface.h"
 #include "cafPdmObjectHandle.h"
 
 #include <QEvent>
 #include <QLabel>
-#include <QMdiArea>
 #include <QPointer>
 
 #include <memory>
@@ -110,11 +110,13 @@ public:
     
     void            setExpanded(const caf::PdmUiItem* uiItem, bool expanded = true);
 
-    RimMdiWindowGeometry    windowGeometryForViewer(QWidget* viewer) override;
+    void            tileSubWindows() override;
+    void            storeSubWindowTiling(bool tiled) override;
+    void            clearWindowTiling() override;
 
-    void            tileWindows();
+    bool            subWindowsAreTiled() const override;
     bool            isAnyMdiSubWindowVisible();
-    QMdiSubWindow*  findMdiSubWindow(QWidget* viewer);
+    QMdiSubWindow*  findMdiSubWindow(QWidget* viewer) override;
     RimViewWindow*  findViewWindowFromSubWindow(QMdiSubWindow* lhs);
     QList<QMdiSubWindow*> subWindowList(QMdiArea::WindowOrder order);
 
@@ -143,11 +145,6 @@ private:
     void            updateUiFieldsFromActiveResult(caf::PdmObjectHandle* objectToUpdate);
 
 private:
-    static RiuMainWindow*    sm_mainWindowInstance;
-    
-    QByteArray                m_initialDockAndToolbarLayout;    // Initial dock window and toolbar layout, used to reset GUI
-
-private:
     // Edit actions
     QAction*            m_newPropertyView;
 
@@ -174,7 +171,7 @@ private:
 
     caf::AnimationToolBar* m_animationToolBar;
 
-    QMdiArea*           m_mdiArea;
+    RiuMdiArea*         m_mdiArea;
     RiuResultInfoPanel* m_resultInfoPanel;
     RiuProcessMonitor*  m_processMonitor;
     QPointer<RiuMessagePanel>               m_messagePanel;
@@ -271,7 +268,6 @@ private:
 
     QToolBar*                   m_holoLensToolBar;
 
-    std::vector<QPointer<QDockWidget> > additionalProjectViews;
+    std::vector<QPointer<QDockWidget> > m_additionalProjectViews;
 
-    bool                        m_blockSlotSubWindowActivated;
 };

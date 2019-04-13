@@ -18,10 +18,9 @@
 
 #include "RimAnnotationInViewCollection.h"
 
-#include "RiaApplication.h"
-
 #include "RimAnnotationCollection.h"
 #include "RimAnnotationGroupCollection.h"
+#include "RimAnnotationTextAppearance.h"
 #include "RimCase.h"
 #include "RimProject.h"
 #include "RimGridView.h"
@@ -232,6 +231,60 @@ void RimAnnotationInViewCollection::onGlobalCollectionChanged(const RimAnnotatio
 size_t RimAnnotationInViewCollection::annotationsCount() const
 {
     return m_textAnnotations->m_annotations.size() + allGlobalPdmAnnotations().size();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimAnnotationInViewCollection::hasTextAnnotationsWithCustomFontSize(RiaFontCache::FontSize defaultFontSize) const
+{
+    for (auto annotation : textAnnotations())
+    {
+        if (annotation->appearance()->fontSize() != defaultFontSize)
+        {
+            return true;
+        }
+    }
+
+    for (auto annotationInView : globalTextAnnotations())
+    {
+        if (annotationInView->sourceAnnotation()->appearance()->fontSize() != defaultFontSize)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimAnnotationInViewCollection::applyFontSizeToAllTextAnnotations(RiaFontCache::FontSize oldFontSize,
+                                                                      RiaFontCache::FontSize fontSize,
+                                                                      bool                   forceChange)
+{
+    bool anyChange = false;
+    for (auto annotation : textAnnotations())
+    {
+        if (forceChange || annotation->appearance()->fontSize() == oldFontSize)
+        {
+            annotation->appearance()->setFontSize(fontSize);
+            annotation->updateConnectedEditors();
+            anyChange = true;
+        }
+    }
+
+    for (auto annotationInView : globalTextAnnotations())
+    {
+        if (forceChange || annotationInView->sourceAnnotation()->appearance()->fontSize() == oldFontSize)
+        {
+            annotationInView->sourceAnnotation()->appearance()->setFontSize(fontSize);
+            annotationInView->updateConnectedEditors();
+            anyChange = true;
+        }
+    }
+    return anyChange;
 }
 
 //--------------------------------------------------------------------------------------------------

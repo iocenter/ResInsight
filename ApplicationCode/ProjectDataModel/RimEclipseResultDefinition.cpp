@@ -20,7 +20,9 @@
 
 #include "RimEclipseResultDefinition.h"
 
+#include "RiaApplication.h"
 #include "RiaLogging.h"
+#include "RiaQDateTimeTools.h"
 
 #include "RigActiveCellInfo.h"
 #include "RigCaseCellResultsData.h"
@@ -40,13 +42,12 @@
 #include "RimEclipseView.h"
 #include "RimFlowDiagSolution.h"
 #include "RimGridCrossPlot.h"
-#include "RimGridCrossPlotCurveSet.h"
+#include "RimGridCrossPlotDataSet.h"
 #include "RimGridTimeHistoryCurve.h"
 #include "RimIntersectionCollection.h"
 #include "RimPlotCurve.h"
 #include "RimProject.h"
 #include "RimReservoirCellResultsStorage.h"
-#include "RimTools.h"
 #include "RimViewLinker.h"
 #include "RimWellLogExtractionCurve.h"
 
@@ -74,8 +75,10 @@ CAF_PDM_SOURCE_INIT(RimEclipseResultDefinition, "ResultDefinition");
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-RimEclipseResultDefinition::RimEclipseResultDefinition()
+RimEclipseResultDefinition::RimEclipseResultDefinition(caf::PdmUiItemInfo::LabelPosType labelPosition)
     : m_diffResultOptionsEnabled(false)
+    , m_labelPosition(labelPosition)
+    , m_ternaryEnabled(true)
 {
     CAF_PDM_InitObject("Result Definition", "", "", "");
 
@@ -91,8 +94,13 @@ RimEclipseResultDefinition::RimEclipseResultDefinition()
     CAF_PDM_InitFieldNoDefault(&m_flowSolution, "FlowDiagSolution", "Solution", "", "", "");
     m_flowSolution.uiCapability()->setUiHidden(true);
 
-    CAF_PDM_InitField(
-        &m_timeLapseBaseTimestep, "TimeLapseBaseTimeStep", RigEclipseResultAddress::NO_TIME_LAPSE, "Base Time Step", "", "", "");
+    CAF_PDM_InitField(&m_timeLapseBaseTimestep,
+                      "TimeLapseBaseTimeStep",
+                      RigEclipseResultAddress::noTimeLapseValue(),
+                      "Base Time Step",
+                      "",
+                      "",
+                      "");
 
     CAF_PDM_InitFieldNoDefault(&m_differenceCase, "DifferenceCase", "Difference Case", "", "", "");
 
@@ -112,19 +120,22 @@ RimEclipseResultDefinition::RimEclipseResultDefinition()
 
     CAF_PDM_InitFieldNoDefault(&m_flowTracerSelectionMode, "FlowTracerSelectionMode", "Tracers", "", "", "");
     CAF_PDM_InitFieldNoDefault(&m_phaseSelection, "PhaseSelection", "Phases", "", "", "");
-
+    m_phaseSelection.uiCapability()->setUiLabelPosition(m_labelPosition);
     // Ui only fields
 
     CAF_PDM_InitFieldNoDefault(&m_resultTypeUiField, "MResultType", "Type", "", "", "");
     m_resultTypeUiField.xmlCapability()->disableIO();
+    m_resultTypeUiField.uiCapability()->setUiLabelPosition(m_labelPosition);
 
     CAF_PDM_InitFieldNoDefault(&m_porosityModelUiField, "MPorosityModelType", "Porosity", "", "", "");
     m_porosityModelUiField.xmlCapability()->disableIO();
+    m_porosityModelUiField.uiCapability()->setUiLabelPosition(m_labelPosition);
 
     CAF_PDM_InitField(
         &m_resultVariableUiField, "MResultVariable", RiaDefines::undefinedResultName(), "Result Property", "", "", "");
     m_resultVariableUiField.xmlCapability()->disableIO();
     m_resultVariableUiField.uiCapability()->setUiEditorTypeName(caf::PdmUiListEditor::uiEditorTypeName());
+    m_resultVariableUiField.uiCapability()->setUiLabelPosition(m_labelPosition);
 
     CAF_PDM_InitFieldNoDefault(&m_flowSolutionUiField, "MFlowDiagSolution", "Solution", "", "", "");
     m_flowSolutionUiField.xmlCapability()->disableIO();
@@ -149,6 +160,7 @@ RimEclipseResultDefinition::RimEclipseResultDefinition()
     CAF_PDM_InitFieldNoDefault(&m_selectedSouringTracersUiField, "MSelectedSouringTracers", "Tracers", "", "", "");
     m_selectedSouringTracersUiField.xmlCapability()->disableIO();
     m_selectedSouringTracersUiField.uiCapability()->setUiEditorTypeName(caf::PdmUiListEditor::uiEditorTypeName());
+    m_selectedSouringTracersUiField.uiCapability()->setUiLabelPosition(m_labelPosition);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -188,6 +200,14 @@ void RimEclipseResultDefinition::setEclipseCase(RimEclipseCase* eclipseCase)
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+RimEclipseCase* RimEclipseResultDefinition::eclipseCase()
+{
+    return m_eclipseCase;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 RigCaseCellResultsData* RimEclipseResultDefinition::currentGridCellResults() const
 {
     if (!m_eclipseCase) return nullptr;
@@ -207,7 +227,7 @@ void RimEclipseResultDefinition::fieldChangedByUi(const caf::PdmFieldHandle* cha
         // If the user are seeing the list with the actually selected result,
         // select that result in the list. Otherwise select nothing.
 
-        QStringList varList = getResultNamesForCurrentUiResultType();
+        QStringList varList = getResultNamesForResultType(m_resultTypeUiField(), this->currentGridCellResults());
 
         bool isFlowDiagFieldsRelevant = (m_resultType() == RiaDefines::FLOW_DIAGNOSTICS);
 
@@ -259,7 +279,7 @@ void RimEclipseResultDefinition::fieldChangedByUi(const caf::PdmFieldHandle* cha
 
     if (&m_differenceCase == changedField)
     {
-        m_timeLapseBaseTimestep = RigEclipseResultAddress::NO_TIME_LAPSE;
+        m_timeLapseBaseTimestep = RigEclipseResultAddress::noTimeLapseValue();
         loadDataAndUpdate();
     }
 
@@ -367,7 +387,7 @@ void RimEclipseResultDefinition::updateAnyFieldHasChanged()
         cellColors->updateConnectedEditors();
     }
 
-    RimGridCrossPlotCurveSet* crossPlotCurveSet = nullptr;
+    RimGridCrossPlotDataSet* crossPlotCurveSet = nullptr;
     this->firstAncestorOrThisOfType(crossPlotCurveSet);
     if (crossPlotCurveSet)
     {
@@ -416,11 +436,12 @@ void RimEclipseResultDefinition::setTofAndSelectTracer(const QString& tracerName
 
         std::vector<QString> tracers;
         tracers.push_back(tracerName);
-        if (tracerStatus == RimFlowDiagSolution::INJECTOR)
+        if ((tracerStatus == RimFlowDiagSolution::INJECTOR) || (tracerStatus == RimFlowDiagSolution::VARYING))
         {
             setSelectedInjectorTracers(tracers);
         }
-        else if (tracerStatus == RimFlowDiagSolution::PRODUCER)
+
+        if ((tracerStatus == RimFlowDiagSolution::PRODUCER) || (tracerStatus == RimFlowDiagSolution::VARYING))
         {
             setSelectedProducerTracers(tracers);
         }
@@ -482,11 +503,12 @@ void RimEclipseResultDefinition::loadDataAndUpdate()
         }
     }
 
-    RimGridCrossPlot* crossPlot = nullptr;
-    this->firstAncestorOrThisOfType(crossPlot);
-    if (crossPlot)
+    RimGridCrossPlotDataSet* crossPlotCurveSet = nullptr;
+    this->firstAncestorOrThisOfType(crossPlotCurveSet);
+    if (crossPlotCurveSet)
     {
-        crossPlot->loadDataAndUpdate();
+        crossPlotCurveSet->destroyCurves();
+        crossPlotCurveSet->loadDataAndUpdate(true);
     }
 
     RimPlotCurve* curve = nullptr;
@@ -634,7 +656,11 @@ QList<caf::PdmOptionItemInfo> RimEclipseResultDefinition::calculateValueOptions(
     {
         if (fieldNeedingOptions == &m_resultVariableUiField)
         {
-            options = calcOptionsForVariableUiFieldStandard();
+            options = calcOptionsForVariableUiFieldStandard(m_resultTypeUiField(),
+                                                            this->currentGridCellResults(),
+                                                            showDerivedResultsFirstInVariableUiField(),
+                                                            addPerCellFaceOptionsForVariableUiField(),
+                                                            m_ternaryEnabled);
         }
         else if (fieldNeedingOptions == &m_differenceCase)
         {
@@ -674,12 +700,12 @@ QList<caf::PdmOptionItemInfo> RimEclipseResultDefinition::calculateValueOptions(
                 baseCase = m_differenceCase;
             }
 
-            options.push_back(caf::PdmOptionItemInfo("Disabled", RigEclipseResultAddress::NO_TIME_LAPSE));
+            options.push_back(caf::PdmOptionItemInfo("Disabled", RigEclipseResultAddress::noTimeLapseValue()));
 
             std::vector<QDateTime> stepDates = baseCase->timeStepDates();
             for (size_t stepIdx = 0; stepIdx < stepDates.size(); ++stepIdx)
             {
-                QString displayString = stepDates[stepIdx].toString(RimTools::dateFormatString());
+                QString displayString = stepDates[stepIdx].toString(RiaQDateTimeTools::dateFormatString());
                 displayString += QString(" (#%1)").arg(stepIdx);
 
                 options.push_back(caf::PdmOptionItemInfo(displayString, static_cast<int>(stepIdx)));
@@ -702,8 +728,8 @@ RigEclipseResultAddress RimEclipseResultDefinition::eclipseResultAddress() const
     const RigCaseCellResultsData* gridCellResults = this->currentGridCellResults();
     if (gridCellResults)
     {
-        int timelapseTimeStep = RigEclipseResultAddress::NO_TIME_LAPSE;
-        int diffCaseId        = RigEclipseResultAddress::NO_CASE_DIFF;
+        int timelapseTimeStep = RigEclipseResultAddress::noTimeLapseValue();
+        int diffCaseId        = RigEclipseResultAddress::noCaseDiffValue();
 
         if (isTimeDiffResult())
         {
@@ -720,6 +746,28 @@ RigEclipseResultAddress RimEclipseResultDefinition::eclipseResultAddress() const
     else
     {
         return RigEclipseResultAddress();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimEclipseResultDefinition::setFromEclipseResultAddress(const RigEclipseResultAddress& address)
+{
+    m_resultType            = address.m_resultCatType;
+    m_resultVariable        = address.m_resultName;
+    m_timeLapseBaseTimestep = address.m_timeLapseBaseFrameIdx;
+
+    if (address.hasDifferenceCase())
+    {
+        auto eclipseCases = RiaApplication::instance()->project()->eclipseCases();
+        for (RimEclipseCase* c : eclipseCases)
+        {
+            if (c && c->caseId() == address.m_differenceCaseId)
+            {
+                m_differenceCase = c;
+            }
+        }
     }
 }
 
@@ -859,14 +907,14 @@ QString RimEclipseResultDefinition::diffResultUiName() const
         {
             stepDates = gridCellResults->timeStepDates();
             diffResult += QString("<b>Base Time Step</b>: %1")
-                              .arg(stepDates[m_timeLapseBaseTimestep()].toString(RimTools::dateFormatString()));
+                              .arg(stepDates[m_timeLapseBaseTimestep()].toString(RiaQDateTimeTools::dateFormatString()));
         }
     }
     if (isCaseDiffResult())
     {
         diffResult += QString("<b>Base Case</b>: %1").arg(m_differenceCase()->caseUserDescription());
     }
-    return diffResult.join("<br>\n");
+    return diffResult.join("\n");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -908,7 +956,7 @@ QString RimEclipseResultDefinition::diffResultUiShortNameHTML() const
     {
         diffResult += QString("Base Time: #%1").arg(m_timeLapseBaseTimestep());
     }
-    return diffResult.join("\n<br>");
+    return diffResult.join("<br>");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1278,13 +1326,8 @@ void RimEclipseResultDefinition::defineUiOrdering(QString uiConfigName, caf::Pdm
         uiOrdering.add(&m_resultVariableUiField);
     }
 
-    if (enableDiffResultOptions())
+    if (isCaseDiffResultAvailable() || isTimeDiffResultAvailable())
     {
-        // NOTE
-        //
-        // It is possible to enable the use of case/time diff results in property filter, fault result, etc
-        // but to limit the number of UI items, the time/case diff is only available as part of "Cell Result"
-
         caf::PdmUiGroup* differenceGroup = uiOrdering.addNewGroup("Difference Options");
         differenceGroup->setUiReadOnly(!(isTimeDiffResultAvailable() || isCaseDiffResultAvailable()));
 
@@ -1297,7 +1340,7 @@ void RimEclipseResultDefinition::defineUiOrdering(QString uiConfigName, caf::Pdm
         QString resultPropertyLabel = "Result Property";
         if (isTimeDiffResult() || isCaseDiffResult())
         {
-            resultPropertyLabel += QString("<br>\n<br>\n%1").arg(diffResultUiShortNameHTML());
+            resultPropertyLabel += QString("\n%1").arg(diffResultUiShortName());
         }
         m_resultVariableUiField.uiCapability()->setUiName(resultPropertyLabel);
     }
@@ -1329,6 +1372,14 @@ void RimEclipseResultDefinition::defineEditorAttribute(const caf::PdmFieldHandle
             {
                 toolButtonAttr->m_sizePolicy.setHorizontalPolicy(QSizePolicy::MinimumExpanding);
             }
+        }
+    }
+    if (field == &m_resultVariableUiField)
+    {
+        caf::PdmUiListEditorAttribute* listEditAttr = dynamic_cast<caf::PdmUiListEditorAttribute*>(attribute);
+        if (listEditAttr)
+        {
+            listEditAttr->m_allowHorizontalScrollBar = false;
         }
     }
 }
@@ -1423,20 +1474,23 @@ QString RimEclipseResultDefinition::flowDiagResUiText(bool shortLabel, int maxTr
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-QList<caf::PdmOptionItemInfo> RimEclipseResultDefinition::calcOptionsForVariableUiFieldStandard()
+QList<caf::PdmOptionItemInfo>
+    RimEclipseResultDefinition::calcOptionsForVariableUiFieldStandard(RiaDefines::ResultCatType     resultCatType,
+                                                                      const RigCaseCellResultsData* results,
+                                                                      bool                          showDerivedResultsFirst,
+                                                                      bool                          addPerCellFaceOptionItems,
+                                                                      bool                          ternaryEnabled)
 {
-    CVF_ASSERT(m_resultTypeUiField() != RiaDefines::FLOW_DIAGNOSTICS && m_resultTypeUiField() != RiaDefines::INJECTION_FLOODING);
+    CVF_ASSERT(resultCatType != RiaDefines::FLOW_DIAGNOSTICS && resultCatType != RiaDefines::INJECTION_FLOODING);
 
-    if (this->currentGridCellResults())
+    if (results)
     {
         QList<caf::PdmOptionItemInfo> optionList;
 
         QStringList cellCenterResultNames;
         QStringList cellFaceResultNames;
 
-        RigCaseCellResultsData* results = this->currentGridCellResults();
-
-        foreach (QString s, getResultNamesForCurrentUiResultType())
+        for (const QString& s : getResultNamesForResultType(resultCatType, results))
         {
             if (s == RiaDefines::completionTypeResultName())
             {
@@ -1457,70 +1511,57 @@ QList<caf::PdmOptionItemInfo> RimEclipseResultDefinition::calcOptionsForVariable
         cellFaceResultNames.sort();
 
         // Cell Center result names
-        foreach (QString s, cellCenterResultNames)
+        for (const QString& s : cellCenterResultNames)
         {
             optionList.push_back(caf::PdmOptionItemInfo(s, s));
         }
 
         // Ternary Result
-        bool hasAtLeastOneTernaryComponent = false;
-        if (cellCenterResultNames.contains("SOIL"))
-            hasAtLeastOneTernaryComponent = true;
-        else if (cellCenterResultNames.contains("SGAS"))
-            hasAtLeastOneTernaryComponent = true;
-        else if (cellCenterResultNames.contains("SWAT"))
-            hasAtLeastOneTernaryComponent = true;
-
-        if (m_resultTypeUiField == RiaDefines::DYNAMIC_NATIVE && hasAtLeastOneTernaryComponent)
+        if (ternaryEnabled)
         {
-            optionList.push_front(
-                caf::PdmOptionItemInfo(RiaDefines::ternarySaturationResultName(), RiaDefines::ternarySaturationResultName()));
-        }
+            bool hasAtLeastOneTernaryComponent = false;
+            if (cellCenterResultNames.contains("SOIL"))
+                hasAtLeastOneTernaryComponent = true;
+            else if (cellCenterResultNames.contains("SGAS"))
+                hasAtLeastOneTernaryComponent = true;
+            else if (cellCenterResultNames.contains("SWAT"))
+                hasAtLeastOneTernaryComponent = true;
 
-        // Cell Face result names
-        bool showDerivedResultsFirstInList = false;
-        {
-            RimEclipseFaultColors* rimEclipseFaultColors = nullptr;
-            this->firstAncestorOrThisOfType(rimEclipseFaultColors);
-
-            if (rimEclipseFaultColors) showDerivedResultsFirstInList = true;
-        }
-
-        foreach (QString s, cellFaceResultNames)
-        {
-            if (showDerivedResultsFirstInList)
+            if (resultCatType == RiaDefines::DYNAMIC_NATIVE && hasAtLeastOneTernaryComponent)
             {
-                optionList.push_front(caf::PdmOptionItemInfo(s, s));
+                optionList.push_front(
+                    caf::PdmOptionItemInfo(RiaDefines::ternarySaturationResultName(), RiaDefines::ternarySaturationResultName()));
             }
-            else
+        }
+        if (addPerCellFaceOptionItems)
+        {
+            for (const QString& s : cellFaceResultNames)
             {
-                optionList.push_back(caf::PdmOptionItemInfo(s, s));
+                if (showDerivedResultsFirst)
+                {
+                    optionList.push_front(caf::PdmOptionItemInfo(s, s));
+                }
+                else
+                {
+                    optionList.push_back(caf::PdmOptionItemInfo(s, s));
+                }
             }
         }
 
         optionList.push_front(caf::PdmOptionItemInfo(RiaDefines::undefinedResultName(), RiaDefines::undefinedResultName()));
 
-        // Remove Per Cell Face options
-        {
-            RimPlotCurve* curve = nullptr;
-            this->firstAncestorOrThisOfType(curve);
-
-            RimEclipsePropertyFilter* propFilter = nullptr;
-            this->firstAncestorOrThisOfType(propFilter);
-
-            RimCellEdgeColors* cellEdge = nullptr;
-            this->firstAncestorOrThisOfType(cellEdge);
-
-            if (propFilter || curve || cellEdge)
-            {
-                removePerCellFaceOptionItems(optionList);
-            }
-        }
-
         return optionList;
     }
 
     return QList<caf::PdmOptionItemInfo>();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimEclipseResultDefinition::setTernaryEnabled(bool enabled)
+{
+    m_ternaryEnabled = enabled;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1585,6 +1626,10 @@ QString RimEclipseResultDefinition::timeOfFlightString(bool shorter) const
     {
         tofString += " (Average)";
     }
+
+    tofString += " [days]";
+    // Conversion from seconds in flow module to days is done in RigFlowDiagTimeStepResult::setTracerTOF()
+
     return tofString;
 }
 
@@ -1675,15 +1720,14 @@ QString RimEclipseResultDefinition::selectedTracersString() const
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-QStringList RimEclipseResultDefinition::getResultNamesForCurrentUiResultType()
+QStringList RimEclipseResultDefinition::getResultNamesForResultType(RiaDefines::ResultCatType     resultCatType,
+                                                                    const RigCaseCellResultsData* results)
 {
-    if (m_resultTypeUiField() != RiaDefines::FLOW_DIAGNOSTICS)
+    if (resultCatType != RiaDefines::FLOW_DIAGNOSTICS)
     {
-        RigCaseCellResultsData* cellResultsStorage = currentGridCellResults();
+        if (!results) return QStringList();
 
-        if (!cellResultsStorage) return QStringList();
-
-        return cellResultsStorage->resultNames(m_resultTypeUiField());
+        return results->resultNames(resultCatType);
     }
     else
     {
@@ -1693,31 +1737,6 @@ QStringList RimEclipseResultDefinition::getResultNamesForCurrentUiResultType()
         flowVars.push_back(RIG_FLD_MAX_FRACTION_TRACER_RESNAME);
         flowVars.push_back(RIG_FLD_COMMUNICATION_RESNAME);
         return flowVars;
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-void RimEclipseResultDefinition::removePerCellFaceOptionItems(QList<caf::PdmOptionItemInfo>& optionItems)
-{
-    std::vector<int> indicesToRemove;
-    for (int i = 0; i < optionItems.size(); i++)
-    {
-        QString text = optionItems[i].value().toString();
-
-        if (RiaDefines::isPerCellFaceResult(text))
-        {
-            indicesToRemove.push_back(i);
-        }
-    }
-
-    std::sort(indicesToRemove.begin(), indicesToRemove.end());
-
-    std::vector<int>::reverse_iterator rit;
-    for (rit = indicesToRemove.rbegin(); rit != indicesToRemove.rend(); ++rit)
-    {
-        optionItems.takeAt(*rit);
     }
 }
 
@@ -1919,7 +1938,7 @@ bool RimEclipseResultDefinition::enableDiffResultOptions() const
 //--------------------------------------------------------------------------------------------------
 bool RimEclipseResultDefinition::isTimeDiffResultAvailable() const
 {
-    return enableDiffResultOptions() && m_resultType() == RiaDefines::DYNAMIC_NATIVE && !isTernarySaturationSelected();
+    return enableDiffResultOptions() && m_resultTypeUiField() == RiaDefines::DYNAMIC_NATIVE && !isTernarySaturationSelected();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1936,8 +1955,8 @@ bool RimEclipseResultDefinition::isTimeDiffResult() const
 bool RimEclipseResultDefinition::isCaseDiffResultAvailable() const
 {
     return enableDiffResultOptions() && !isTernarySaturationSelected() &&
-           (m_resultType() == RiaDefines::DYNAMIC_NATIVE || m_resultType() == RiaDefines::STATIC_NATIVE ||
-            m_resultType() == RiaDefines::GENERATED);
+           (m_resultTypeUiField() == RiaDefines::DYNAMIC_NATIVE || m_resultTypeUiField() == RiaDefines::STATIC_NATIVE ||
+            m_resultTypeUiField() == RiaDefines::GENERATED);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1949,7 +1968,44 @@ bool RimEclipseResultDefinition::isCaseDiffResult() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
+//--------------------------------------------------------------------------------------------------
+bool RimEclipseResultDefinition::showDerivedResultsFirstInVariableUiField() const
+{
+    // Cell Face result names
+    bool                   showDerivedResultsFirstInList = false;
+    RimEclipseFaultColors* rimEclipseFaultColors         = nullptr;
+    this->firstAncestorOrThisOfType(rimEclipseFaultColors);
+
+    if (rimEclipseFaultColors) showDerivedResultsFirstInList = true;
+
+    return showDerivedResultsFirstInList;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimEclipseResultDefinition::addPerCellFaceOptionsForVariableUiField() const
+{
+    RimPlotCurve* curve = nullptr;
+    this->firstAncestorOrThisOfType(curve);
+
+    RimEclipsePropertyFilter* propFilter = nullptr;
+    this->firstAncestorOrThisOfType(propFilter);
+
+    RimCellEdgeColors* cellEdge = nullptr;
+    this->firstAncestorOrThisOfType(cellEdge);
+
+    if (propFilter || curve || cellEdge)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
 //--------------------------------------------------------------------------------------------------
 void RimEclipseResultDefinition::ensureProcessingOfObsoleteFields()
 {

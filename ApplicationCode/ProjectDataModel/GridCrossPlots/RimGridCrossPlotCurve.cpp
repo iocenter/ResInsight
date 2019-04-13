@@ -20,6 +20,7 @@
 #include "RiaColorTables.h"
 
 #include "RigCaseCellResultCalculator.h"
+#include "RiuQwtSymbol.h"
 
 #include "RimCase.h"
 #include "RimEclipseCase.h"
@@ -35,6 +36,7 @@
 
 #include "qwt_plot.h"
 #include "qwt_plot_curve.h"
+#include "qwt_graphic.h"
 
 #include <random>
 
@@ -43,51 +45,87 @@ CAF_PDM_SOURCE_INIT(RimGridCrossPlotCurve, "GridCrossPlotCurve");
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RimGridCrossPlotCurve::determineColorAndSymbol(int curveSetIndex, int categoryIndex, int nCategories, bool contrastColors)
-{
-    if (contrastColors)
-    {
-        const caf::ColorTable& colors = RiaColorTables::contrastCategoryPaletteColors();
-        int colorIndex = categoryIndex + curveSetIndex; // Offset cycle for each curve set
-        setColor(colors.cycledColor3f(colorIndex));
-        int numColors = (int)colors.size();
-
-        // Retain same symbol until we've gone full cycle in colors
-        int symbolIndex = categoryIndex / numColors;
-
-        RiuQwtSymbol::PointSymbolEnum symbol = RiuQwtSymbol::cycledSymbolStyle(curveSetIndex, symbolIndex);
-        setSymbol(symbol);
-    }
-    else
-    {
-        const caf::ColorTable& colors           = RiaColorTables::contrastCategoryPaletteColors();
-        cvf::Color3ub          cycledBaseColor  = colors.cycledColor3ub(curveSetIndex);
-        caf::ColorTable        hueConstColTable = RiaColorTables::createBrightnessBasedColorTable(cycledBaseColor, nCategories);
-        setColor(hueConstColTable.cycledColor3f(categoryIndex));
-        RiuQwtSymbol::PointSymbolEnum symbol = RiuQwtSymbol::cycledFilledSymbolStyle(curveSetIndex);
-        setSymbol(symbol);
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
 RimGridCrossPlotCurve::RimGridCrossPlotCurve()
+    : m_dataSetIndex(0)
+    , m_groupIndex(0)
 {
     CAF_PDM_InitObject("Cross Plot Points", ":/WellLogCurve16x16.png", "", "");
    
     setLineStyle(RiuQwtPlotCurve::STYLE_NONE);
-    setLineThickness(0);
     setSymbol(RiuQwtSymbol::SYMBOL_NONE);
-    setSymbolSize(6);
+    setSymbolSize(4);
 }
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RimGridCrossPlotCurve::setSamples(const QVector<QPointF>& samples)
+void RimGridCrossPlotCurve::setGroupingInformation(int dataSetIndex, int groupIndex)
 {
-    m_qwtPlotCurve->setSamples(samples);
+    m_dataSetIndex = dataSetIndex;
+    m_groupIndex = groupIndex;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridCrossPlotCurve::setSamples(const std::vector<double>& xValues, const std::vector<double>& yValues)
+{
+    CVF_ASSERT(xValues.size() == yValues.size());
+
+    m_qwtPlotCurve->setSamples(&xValues[0], &yValues[0], static_cast<int>(xValues.size()));
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridCrossPlotCurve::setCurveAutoAppearance()
+{
+    determineSymbol();
+    updateCurveAppearance();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+int RimGridCrossPlotCurve::groupIndex() const
+{
+    return m_groupIndex;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+size_t RimGridCrossPlotCurve::sampleCount() const
+{
+    return m_qwtPlotCurve ? m_qwtPlotCurve->dataSize() : 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridCrossPlotCurve::determineLegendIcon()
+{
+    RimGridCrossPlot* plot = nullptr;
+    firstAncestorOrThisOfTypeAsserted(plot);
+    int fontSize = plot->legendFontSize();
+    m_qwtPlotCurve->setLegendIconSize(QSize(fontSize, fontSize));
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridCrossPlotCurve::setBlackAndWhiteLegendIcons(bool blackAndWhite)
+{
+    m_qwtPlotCurve->setBlackAndWhiteLegendIcon(blackAndWhite);
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridCrossPlotCurve::determineSymbol()
+{
+    RiuQwtSymbol::PointSymbolEnum symbol = RiuQwtSymbol::cycledSymbolStyle(m_dataSetIndex);
+    setSymbol(symbol);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -105,7 +143,13 @@ void RimGridCrossPlotCurve::updateZoomInParentPlot()
 //--------------------------------------------------------------------------------------------------
 void RimGridCrossPlotCurve::updateLegendsInPlot() 
 {
-
+    RimGridCrossPlot* plot = nullptr;
+    this->firstAncestorOrThisOfType(plot);
+    if (plot)
+    {
+        plot->reattachCurvesToQwtAndReplot();
+    }
+    RimPlotCurve::updateLegendsInPlot();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -123,9 +167,7 @@ void RimGridCrossPlotCurve::onLoadDataAndUpdate(bool updateParentPlot)
 {
     if (updateParentPlot)
     {
-        RimGridCrossPlot* crossPlot;
-        firstAncestorOrThisOfTypeAsserted(crossPlot);
-        crossPlot->reattachCurvesToQwtAndReplot();
+        m_parentQwtPlot->replot();
     }
 }
 
@@ -136,14 +178,8 @@ void RimGridCrossPlotCurve::defineUiOrdering(QString uiConfigName, caf::PdmUiOrd
 {
     caf::PdmUiGroup* appearanceGroup = uiOrdering.addNewGroup("Appearance");
     RimPlotCurve::appearanceUiOrdering(*appearanceGroup);
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-QList<caf::PdmOptionItemInfo> RimGridCrossPlotCurve::calculateValueOptions(const caf::PdmFieldHandle* fieldNeedingOptions,
-                                                                           bool*                      useOptionsOnly)
-{
-    QList<caf::PdmOptionItemInfo> options;
-    return options;
+    caf::PdmUiGroup* nameGroup = uiOrdering.addNewGroup("Curve Name");
+    nameGroup->add(&m_curveName);
+    nameGroup->add(&m_showLegend);
+    uiOrdering.skipRemainingFields(true);
 }

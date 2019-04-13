@@ -36,7 +36,6 @@
 
 #include "RiuDragDrop.h"
 #include "RiuMdiSubWindow.h"
-#include "RiuSummaryQwtPlot.h"
 #include "RiuToolTipMenu.h"
 #include "RiuTreeViewEventFilter.h"
 #include "RiuWellAllocationPlot.h"
@@ -66,8 +65,7 @@ RiuPlotMainWindow::RiuPlotMainWindow()
     , m_windowMenu(nullptr)
     , m_blockSlotSubWindowActivated(false)
 {
-    m_mdiArea = new QMdiArea;
-    m_mdiArea->setOption(QMdiArea::DontMaximizeSubWindowOnActivation, true);
+    m_mdiArea = new RiuMdiArea;
     connect(m_mdiArea, SIGNAL(subWindowActivated(QMdiSubWindow*)), SLOT(slotSubWindowActivated(QMdiSubWindow*)));
     setCentralWidget(m_mdiArea);
 
@@ -122,6 +120,23 @@ void RiuPlotMainWindow::initializeGuiNewProjectLoaded()
         }
     }
 
+    if (subWindowsAreTiled())
+    {
+        tileSubWindows();
+    }
+
+    if (m_activePlotViewWindow && m_activePlotViewWindow->viewWidget())
+    {
+        if (m_activePlotViewWindow->mdiWindowGeometry().isMaximized)
+        {
+            auto subWin = findMdiSubWindow(m_activePlotViewWindow->viewWidget());
+            if (subWin)
+            {
+                subWin->showMaximized();
+            }
+        }
+    }
+
     refreshToolbars();
 }
 
@@ -166,8 +181,12 @@ void RiuPlotMainWindow::closeEvent(QCloseEvent* event)
 {
     RiaApplication* app = RiaApplication::instance();
 
+    app->savePlotWinGeoAndDockToolBarLayout();
+
     if (app->isMain3dWindowVisible())
     {
+        event->ignore();
+        this->hide();
         return;
     }
 
@@ -177,9 +196,7 @@ void RiuPlotMainWindow::closeEvent(QCloseEvent* event)
         return;
     }
 
-    app->saveWinGeoAndDockToolBarLayout();
-
-    if (!app->tryCloseMainWindow()) return;
+    app->closeMainWindowIfOpenButHidden();
 
     app->closeProject();
 }
@@ -287,9 +304,9 @@ QStringList RiuPlotMainWindow::toolbarCommandIds(const QString& toolbarName)
 
     if (toolbarName.isEmpty() || toolbarName == "Standard")
     {
-        commandIds << "RicImportEclipseCaseFeature";
-        commandIds << "RicImportInputEclipseCaseFeature";
+        commandIds << "RicImportGeneralDataFeature";
         commandIds << "RicImportSummaryCaseFeature";
+        commandIds << "RicImportEnsembleFeature";
         commandIds << "RicOpenProjectFeature";
         commandIds << "RicSaveProjectFeature";
     }
@@ -357,6 +374,7 @@ void RiuPlotMainWindow::refreshToolbars()
     QStringList allToolbarCommandNames = toolbarCommandIds();
 
     caf::CmdFeatureManager::instance()->refreshEnabledState(allToolbarCommandNames);
+    caf::CmdFeatureManager::instance()->refreshCheckedState(allToolbarCommandNames);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -408,8 +426,6 @@ void RiuPlotMainWindow::createDockPanels()
 
         m_pdmUiPropertyView = new caf::PdmUiPropertyView(dockWidget);
         dockWidget->setWidget(m_pdmUiPropertyView);
-
-        m_pdmUiPropertyView->layout()->setContentsMargins(5, 0, 0, 0);
 
         addDockWidget(Qt::LeftDockWidgetArea, dockWidget);
     }
@@ -574,7 +590,10 @@ void RiuPlotMainWindow::removeViewer(QWidget* viewer)
     m_blockSlotSubWindowActivated = true;
     m_mdiArea->removeSubWindow(findMdiSubWindow(viewer));
     m_blockSlotSubWindowActivated = false;
-
+    if (subWindowsAreTiled())
+    {
+        tileSubWindows();
+    }
     refreshToolbars();
 }
 
@@ -583,24 +602,17 @@ void RiuPlotMainWindow::removeViewer(QWidget* viewer)
 //--------------------------------------------------------------------------------------------------
 void RiuPlotMainWindow::addViewer(QWidget* viewer, const RimMdiWindowGeometry& windowsGeometry)
 {
-    RiuMdiSubWindow* subWin = new RiuMdiSubWindow(m_mdiArea);
-    subWin->setAttribute(Qt::WA_DeleteOnClose); // Make sure the contained widget is destroyed when the MDI window is closed
-    subWin->setWidget(viewer);
-
     QSize  subWindowSize;
     QPoint subWindowPos(-1, -1);
-    bool   initialStateMaximized = false;
 
     if (windowsGeometry.isValid())
     {
         subWindowPos  = QPoint(windowsGeometry.x, windowsGeometry.y);
         subWindowSize = QSize(windowsGeometry.width, windowsGeometry.height);
-
-        initialStateMaximized = windowsGeometry.isMaximized;
     }
     else
     {
-        RiuWellLogPlot* wellLogPlot = dynamic_cast<RiuWellLogPlot*>(subWin->widget());
+        RiuWellLogPlot* wellLogPlot = dynamic_cast<RiuWellLogPlot*>(viewer);
         if (wellLogPlot)
         {
             QSize preferredSize = wellLogPlot->preferredSize();
@@ -609,35 +621,10 @@ void RiuPlotMainWindow::addViewer(QWidget* viewer, const RimMdiWindowGeometry& w
         else
         {
             subWindowSize = QSize(400, 400);
-
-            if (m_mdiArea->subWindowList().size() < 1)
-            {
-                // Show first 3D view maximized
-                initialStateMaximized = true;
-            }
         }
     }
 
-    if (m_mdiArea->currentSubWindow() && m_mdiArea->currentSubWindow()->isMaximized())
-    {
-        initialStateMaximized = true;
-    }
-
-    subWin->show();
-
-    // Move and resize must be done after window is visible
-    // If not, the position and size of the window is different to specification (Windows 7)
-    // Might be a Qt bug, must be tested on Linux
-    if (subWindowPos.x() > -1)
-    {
-        subWin->move(subWindowPos);
-    }
-    subWin->resize(subWindowSize);
-
-    if (initialStateMaximized)
-    {
-        subWin->showMaximized();
-    }
+    addViewerToMdiArea(m_mdiArea, viewer, subWindowPos, subWindowSize);
 
     refreshToolbars();
 }
@@ -862,21 +849,7 @@ void RiuPlotMainWindow::customMenuRequested(const QPoint& pos)
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-RimMdiWindowGeometry RiuPlotMainWindow::windowGeometryForViewer(QWidget* viewer)
-{
-    QMdiSubWindow* mdiWindow = findMdiSubWindow(viewer);
-    if (mdiWindow)
-    {
-        return RiuMdiSubWindow::windowGeometryForWidget(mdiWindow);
-    }
-
-    RimMdiWindowGeometry geo;
-    return geo;
-}
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-void RiuPlotMainWindow::tileWindows()
+void RiuPlotMainWindow::tileSubWindows()
 {
     QMdiArea::WindowOrder currentActivationOrder = m_mdiArea->activationOrder();
 
@@ -907,6 +880,45 @@ void RiuPlotMainWindow::tileWindows()
     // Set back the original activation order to avoid messing with the standard ordering
     m_mdiArea->setActivationOrder(currentActivationOrder);
     m_mdiArea->setActiveSubWindow(a);
+
+    storeSubWindowTiling(true);    
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuPlotMainWindow::storeSubWindowTiling(bool tiled)
+{
+    RiaApplication::instance()->project()->setSubWindowsTiledInPlotWindow(tiled);
+    refreshToolbars();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuPlotMainWindow::clearWindowTiling()
+{
+    QMdiArea::WindowOrder currentActivationOrder = m_mdiArea->activationOrder();
+
+    std::list<QMdiSubWindow*> windowList;
+    for (QMdiSubWindow* subWindow : m_mdiArea->subWindowList(currentActivationOrder))
+    {
+        subWindow->hide();
+        subWindow->showNormal();
+    }
+    storeSubWindowTiling(false);
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RiuPlotMainWindow::subWindowsAreTiled() const
+{
+    if (RiaApplication::instance()->project())
+    {
+        return RiaApplication::instance()->project()->subWindowsTiledPlotWindow();
+    }
+    return false;
 }
 
 //--------------------------------------------------------------------------------------------------

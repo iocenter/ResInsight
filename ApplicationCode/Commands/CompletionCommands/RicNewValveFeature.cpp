@@ -18,7 +18,11 @@ CAF_CMD_SOURCE_INIT(RicNewValveFeature, "RicNewValveFeature");
 //--------------------------------------------------------------------------------------------------
 bool RicNewValveFeature::isCommandEnabled()
 {
-    const RimPerforationInterval* perfInterval = caf::SelectionManager::instance()->selectedItemOfType<RimPerforationInterval>();
+    std::vector<caf::PdmUiItem*> allSelectedItems;
+    caf::SelectionManager::instance()->selectedItems(allSelectedItems);
+    if (allSelectedItems.size() != 1u) return false;
+
+    const RimPerforationInterval* perfInterval = dynamic_cast<RimPerforationInterval*>(allSelectedItems.front());
     return perfInterval != nullptr;
 }
 
@@ -65,5 +69,5 @@ void RicNewValveFeature::onActionTriggered(bool isChecked)
 void RicNewValveFeature::setupActionLook(QAction* actionToSetup)
 {
     actionToSetup->setIcon(QIcon(":/ICDValve16x16.png"));
-    actionToSetup->setText("New Valve");
+    actionToSetup->setText("Create Valve");
 }

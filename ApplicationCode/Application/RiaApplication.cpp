@@ -22,6 +22,7 @@
 
 #include "RiaArgumentParser.h"
 #include "RiaBaseDefs.h"
+#include "RiaColorTables.h"
 #include "RiaFilePathTools.h"
 #include "RiaFontCache.h"
 #include "RiaImportEclipseCaseTools.h"
@@ -34,11 +35,12 @@
 
 #include "ExportCommands/RicSnapshotAllViewsToFileFeature.h"
 #include "HoloLensCommands/RicHoloLensSessionManager.h"
-#include "RicImportInputEclipseCaseFeature.h"
-#include "RicImportSummaryCasesFeature.h"
+#include "RicImportGeneralDataFeature.h"
 
 #include "Rim2dIntersectionViewCollection.h"
 #include "RimAnnotationCollection.h"
+#include "RimAnnotationInViewCollection.h"
+#include "RimAnnotationTextAppearance.h"
 #include "RimCellRangeFilterCollection.h"
 #include "RimCommandObject.h"
 #include "RimEclipseCaseCollection.h"
@@ -60,6 +62,9 @@
 #include "RimPltPlotCollection.h"
 #include "RimProject.h"
 #include "RimRftPlotCollection.h"
+#include "RimSaturationPressurePlot.h"
+#include "RimSaturationPressurePlotCollection.h"
+#include "RimSimWellInViewCollection.h"
 #include "RimStimPlanColors.h"
 #include "RimSummaryCase.h"
 #include "RimSummaryCaseCollection.h"
@@ -67,6 +72,8 @@
 #include "RimSummaryCrossPlotCollection.h"
 #include "RimSummaryPlot.h"
 #include "RimSummaryPlotCollection.h"
+#include "RimTextAnnotation.h"
+#include "RimTextAnnotationInView.h"
 #include "RimViewLinker.h"
 #include "RimViewLinkerCollection.h"
 #include "RimWellLogFile.h"
@@ -80,6 +87,7 @@
 #include "Riu3dSelectionManager.h"
 #include "RiuDockWidgetTools.h"
 #include "RiuMainWindow.h"
+#include "RiuMessagePanel.h"
 #include "RiuPlotMainWindow.h"
 #include "RiuProcessMonitor.h"
 #include "RiuRecentFileActionProvider.h"
@@ -178,6 +186,12 @@ bool RiaApplication::notify(QObject* receiver, QEvent* event)
 //--------------------------------------------------------------------------------------------------
 RiaApplication::RiaApplication(int& argc, char** argv)
     : QApplication(argc, argv)
+    , m_socketServer(nullptr)
+    , m_workerProcess(nullptr)
+    , m_preferences(nullptr)
+    , m_runningWorkerProcess(false)
+    , m_mainWindow(nullptr)
+    , m_mainPlotWindow(nullptr)
 {
     // USed to get registry settings in the right place
     QCoreApplication::setOrganizationName(RI_COMPANY_NAME);
@@ -207,8 +221,7 @@ RiaApplication::RiaApplication(int& argc, char** argv)
 
     setWindowIcon(QIcon(":/AppLogo48x48.png"));
 
-    m_socketServer  = new RiaSocketServer(this);
-    m_workerProcess = nullptr;
+    m_socketServer = new RiaSocketServer(this);
 
 #ifdef WIN32
     m_startupDefaultDirectory = QDir::homePath();
@@ -218,15 +231,15 @@ RiaApplication::RiaApplication(int& argc, char** argv)
 
     setLastUsedDialogDirectory("MULTICASEIMPORT", "/");
 
-    // The creation of a font is time consuming, so make sure you really need your own font
-    // instead of using the application font
-    m_standardFont = RiaFontCache::getFont(RiaFontCache::FONT_SIZE_8);
-
-    m_runningWorkerProcess = false;
-
-    m_mainPlotWindow = nullptr;
-
     m_recentFileActionProvider = std::unique_ptr<RiuRecentFileActionProvider>(new RiuRecentFileActionProvider);
+
+    // Create main windows
+    // The plot window is created to be able to set expanded state on created objects, but hidden by default
+    getOrCreateAndShowMainWindow();
+    getOrCreateMainPlotWindow();
+
+    RiaLogging::setLoggerInstance(new RiuMessagePanelLogger(m_mainWindow->messagePanel()));
+    RiaLogging::loggerInstance()->setLevel(RI_LL_DEBUG);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -237,8 +250,11 @@ RiaApplication::~RiaApplication()
     RiuDockWidgetTools::instance()->saveDockWidgetsState();
 
     deleteMainPlotWindow();
+    deleteMainWindow();
 
     delete m_preferences;
+
+    RiaLogging::deleteLoggerInstance();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -283,8 +299,7 @@ int RiaApplication::parseArgumentsAndRunUnitTestsIfRequested()
 //--------------------------------------------------------------------------------------------------
 void RiaApplication::setWindowCaptionFromAppState()
 {
-    RiuMainWindow* mainWnd = RiuMainWindow::instance();
-    if (!mainWnd) return;
+    if (!m_mainWindow) return;
 
     // The stuff being done here should really be handled by Qt automatically as a result of
     // setting applicationName and windowFilePath
@@ -302,7 +317,7 @@ void RiaApplication::setWindowCaptionFromAppState()
         capt = projFileName + QString("[*]") + QString(" - ") + capt;
     }
 
-    mainWnd->setWindowTitle(capt);
+    m_mainWindow->setWindowTitle(capt);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -341,6 +356,51 @@ const char* RiaApplication::getVersionStringApp(bool includeCrtInfo)
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+class RiaMdiMaximizeWindowGuard
+{
+public:
+    RiaMdiMaximizeWindowGuard()
+    {
+        {
+            RiuMainWindow* mainWindow = RiaApplication::instance()->mainWindow();
+            if (mainWindow)
+            {
+                mainWindow->enableShowFirstVisibleMdiWindowMaximized(false);
+            }
+        }
+
+        {
+            RiuPlotMainWindow* plotMainWindow = RiaApplication::instance()->mainPlotWindow();
+            if (plotMainWindow)
+            {
+                plotMainWindow->enableShowFirstVisibleMdiWindowMaximized(false);
+            }
+        }
+    }
+
+    ~RiaMdiMaximizeWindowGuard()
+    {
+        {
+            RiuMainWindow* mainWindow = RiaApplication::instance()->mainWindow();
+            if (mainWindow)
+            {
+                mainWindow->enableShowFirstVisibleMdiWindowMaximized(true);
+            }
+        }
+
+        {
+            RiuPlotMainWindow* plotMainWindow = RiaApplication::instance()->mainPlotWindow();
+            if (plotMainWindow)
+            {
+                plotMainWindow->enableShowFirstVisibleMdiWindowMaximized(true);
+            }
+        }
+    }
+};
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 bool RiaApplication::loadProject(const QString&      projectFileName,
                                  ProjectLoadAction   loadAction,
                                  RiaProjectModifier* projectModifier)
@@ -348,6 +408,9 @@ bool RiaApplication::loadProject(const QString&      projectFileName,
     // First Close the current project
 
     closeProject();
+
+    // When importing a project, do not maximize the first MDI window to be created
+    RiaMdiMaximizeWindowGuard maximizeWindowGuard;
 
     RiaLogging::info(QString("Starting to open project file : '%1'").arg(projectFileName));
 
@@ -382,8 +445,7 @@ bool RiaApplication::loadProject(const QString&      projectFileName,
             QString("Unknown project file version detected in file \n%1\n\nCould not open project.").arg(fullPathProjectFileName);
         QMessageBox::warning(nullptr, "Error when opening project file", tmp);
 
-        RiuMainWindow* mainWnd = RiuMainWindow::instance();
-        mainWnd->setPdmRoot(nullptr);
+        m_mainWindow->setPdmRoot(nullptr);
 
         // Delete all object possibly generated by readFile()
         delete m_project;
@@ -396,11 +458,11 @@ bool RiaApplication::loadProject(const QString&      projectFileName,
 
     if (m_project->show3DWindow())
     {
-        RiuMainWindow::instance()->show();
+        m_mainWindow->show();
     }
     else
     {
-        RiuMainWindow::instance()->hide();
+        m_mainWindow->hide();
     }
 
     if (m_project->showPlotWindow())
@@ -486,15 +548,10 @@ bool RiaApplication::loadProject(const QString&      projectFileName,
         {
             oilField->observedDataCollection = new RimObservedDataCollection();
         }
-        for (auto observedCases : oilField->observedDataCollection()->allObservedData())
+        for (RimObservedData* observedData : oilField->observedDataCollection()->allObservedData())
         {
-            observedCases->createSummaryReaderInterface();
-
-            RimObservedData* rimObservedData = dynamic_cast<RimObservedData*>(observedCases);
-            if (rimObservedData)
-            {
-                rimObservedData->updateMetaData();
-            }
+            observedData->createSummaryReaderInterface();
+            observedData->updateMetaData();
         }
 
         oilField->fractureDefinitionCollection()->loadAndUpdateData();
@@ -649,13 +706,14 @@ bool RiaApplication::loadProject(const QString& projectFileName)
 //--------------------------------------------------------------------------------------------------
 void RiaApplication::loadAndUpdatePlotData()
 {
-    RimWellLogPlotCollection*      wlpColl  = nullptr;
-    RimSummaryPlotCollection*      spColl   = nullptr;
-    RimSummaryCrossPlotCollection* scpColl  = nullptr;
-    RimFlowPlotCollection*         flowColl = nullptr;
-    RimRftPlotCollection*          rftColl  = nullptr;
-    RimPltPlotCollection*          pltColl  = nullptr;
-    RimGridCrossPlotCollection*    gcpColl  = nullptr;
+    RimWellLogPlotCollection*            wlpColl  = nullptr;
+    RimSummaryPlotCollection*            spColl   = nullptr;
+    RimSummaryCrossPlotCollection*       scpColl  = nullptr;
+    RimFlowPlotCollection*               flowColl = nullptr;
+    RimRftPlotCollection*                rftColl  = nullptr;
+    RimPltPlotCollection*                pltColl  = nullptr;
+    RimGridCrossPlotCollection*          gcpColl  = nullptr;
+    RimSaturationPressurePlotCollection* sppColl  = nullptr;
 
     if (m_project->mainPlotCollection() && m_project->mainPlotCollection()->wellLogPlotCollection())
     {
@@ -685,6 +743,10 @@ void RiaApplication::loadAndUpdatePlotData()
     {
         gcpColl = m_project->mainPlotCollection()->gridCrossPlotCollection();
     }
+    if (m_project->mainPlotCollection() && m_project->mainPlotCollection()->saturationPressurePlotCollection())
+    {
+        sppColl = m_project->mainPlotCollection()->saturationPressurePlotCollection();
+    }
 
     size_t plotCount = 0;
     plotCount += wlpColl ? wlpColl->wellLogPlots().size() : 0;
@@ -694,6 +756,7 @@ void RiaApplication::loadAndUpdatePlotData()
     plotCount += rftColl ? rftColl->rftPlots().size() : 0;
     plotCount += pltColl ? pltColl->pltPlots().size() : 0;
     plotCount += gcpColl ? gcpColl->gridCrossPlots().size() : 0;
+    plotCount += sppColl ? sppColl->plots().size() : 0;
 
     if (plotCount > 0)
     {
@@ -758,6 +821,15 @@ void RiaApplication::loadAndUpdatePlotData()
                 plotProgress.incrementProgress();
             }
         }
+
+        if (sppColl)
+        {
+            for (const auto& sppPlot : sppColl->plots())
+            {
+                sppPlot->loadDataAndUpdate();
+                plotProgress.incrementProgress();
+            }
+        }
     }
 }
 
@@ -785,7 +857,7 @@ void RiaApplication::storeTreeViewState()
     }
 
     {
-        caf::PdmUiTreeView* projectTreeView = RiuMainWindow::instance()->projectTreeView();
+        caf::PdmUiTreeView* projectTreeView = m_mainWindow->projectTreeView();
         if (projectTreeView)
         {
             QString treeViewState;
@@ -871,7 +943,7 @@ void RiaApplication::addWellLogsToModel(const QList<QString>& wellLogFilePaths)
 
     oilField->wellPathCollection->updateConnectedEditors();
 
-    RiuMainWindow::instance()->selectAsCurrentItem(wellLogFile);
+    m_mainWindow->selectAsCurrentItem(wellLogFile);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1018,15 +1090,13 @@ void RiaApplication::closeProject()
     RicHoloLensSessionManager::instance()->terminateSession();
     RicHoloLensSessionManager::refreshToolbarState();
 
-    RiuMainWindow* mainWnd = RiuMainWindow::instance();
-
     RiaViewRedrawScheduler::instance()->clearViewsScheduledForUpdate();
 
     terminateProcess();
 
     RiaApplication::clearAllSelections();
 
-    mainWnd->cleanupGuiBeforeProjectClose();
+    m_mainWindow->cleanupGuiBeforeProjectClose();
 
     if (m_mainPlotWindow)
     {
@@ -1049,10 +1119,9 @@ void RiaApplication::closeProject()
 //--------------------------------------------------------------------------------------------------
 void RiaApplication::onProjectOpenedOrClosed()
 {
-    RiuMainWindow* mainWnd = RiuMainWindow::instance();
-    if (mainWnd)
+    if (m_mainWindow)
     {
-        mainWnd->initializeGuiNewProjectLoaded();
+        m_mainWindow->initializeGuiNewProjectLoaded();
     }
     if (m_mainPlotWindow)
     {
@@ -1157,7 +1226,7 @@ bool RiaApplication::openOdbCaseFromFile(const QString& fileName, bool applyTime
 
     m_project->updateConnectedEditors();
 
-    RiuMainWindow::instance()->selectAsCurrentItem(riv->cellResult());
+    m_mainWindow->selectAsCurrentItem(riv->cellResult());
 
     return true;
 }
@@ -1199,7 +1268,7 @@ void RiaApplication::createMockModelCustomized()
 //--------------------------------------------------------------------------------------------------
 void RiaApplication::createInputMockModel()
 {
-    RicImportInputEclipseCaseFeature::openInputEclipseCaseFromFileNames(QStringList(RiaDefines::mockModelBasicInputCase()));
+    RiaImportEclipseCaseTools::openEclipseInputCaseFromFileNames(QStringList(RiaDefines::mockModelBasicInputCase()));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1305,6 +1374,8 @@ bool RiaApplication::parseArguments()
 int RiaApplication::launchUnitTests()
 {
 #ifdef USE_UNIT_TESTS
+
+    caf::ProgressInfoBlocker progressBlocker;
     cvf::Assert::setReportMode(cvf::Assert::CONSOLE);
 
 #if QT_VERSION < 0x050000
@@ -1369,6 +1440,26 @@ int RiaApplication::launchUnitTestsWithConsole()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+RiuMainWindow* RiaApplication::getOrCreateAndShowMainWindow()
+{
+    if (!m_mainWindow)
+    {
+        createMainWindow();
+    }
+    return m_mainWindow;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+RiuMainWindow* RiaApplication::mainWindow()
+{
+    return m_mainWindow;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 RiuPlotMainWindow* RiaApplication::getOrCreateMainPlotWindow()
 {
     if (!m_mainPlotWindow)
@@ -1378,6 +1469,33 @@ RiuPlotMainWindow* RiaApplication::getOrCreateMainPlotWindow()
         loadAndUpdatePlotData();
     }
     return m_mainPlotWindow;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiaApplication::createMainWindow()
+{
+    CVF_ASSERT(m_mainWindow == nullptr);
+    m_mainWindow     = new RiuMainWindow;
+    QString platform = cvf::System::is64Bit() ? "(64bit)" : "(32bit)";
+    m_mainWindow->setWindowTitle("ResInsight " + platform);
+    m_mainWindow->setDefaultWindowSize();
+    m_mainWindow->setDefaultToolbarVisibility();
+    m_mainWindow->loadWinGeoAndDockToolBarLayout();
+    m_mainWindow->showWindow();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiaApplication::deleteMainWindow()
+{
+    if (m_mainWindow)
+    {
+        delete m_mainWindow;
+        m_mainWindow = nullptr;
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1447,7 +1565,7 @@ RiuPlotMainWindow* RiaApplication::mainPlotWindow()
 RiuMainWindowBase* RiaApplication::mainWindowByID(int mainWindowID)
 {
     if (mainWindowID == 0)
-        return RiuMainWindow::instance();
+        return m_mainWindow;
     else if (mainWindowID == 1)
         return m_mainPlotWindow;
     else
@@ -1486,7 +1604,7 @@ RimViewWindow* RiaApplication::activeViewWindow()
 //--------------------------------------------------------------------------------------------------
 bool RiaApplication::isMain3dWindowVisible() const
 {
-    return RiuMainWindow::instance()->isVisible();
+    return m_mainWindow && m_mainWindow->isVisible();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1494,45 +1612,29 @@ bool RiaApplication::isMain3dWindowVisible() const
 //--------------------------------------------------------------------------------------------------
 bool RiaApplication::isMainPlotWindowVisible() const
 {
-    if (!m_mainPlotWindow) return false;
-
-    return m_mainPlotWindow->isVisible();
+    return m_mainPlotWindow && m_mainPlotWindow->isVisible();
 }
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-bool RiaApplication::tryCloseMainWindow()
+void RiaApplication::closeMainWindowIfOpenButHidden()
 {
-    RiuMainWindow* mainWindow = RiuMainWindow::instance();
-    if (mainWindow && !mainWindow->isVisible())
+    if (m_mainWindow && !m_mainWindow->isVisible())
     {
-        mainWindow->close();
-
-        return true;
+        m_mainWindow->close();
     }
-
-    return false;
 }
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-bool RiaApplication::tryClosePlotWindow()
+void RiaApplication::closeMainPlotWindowIfOpenButHidden()
 {
-    if (!m_mainPlotWindow)
-    {
-        return true;
-    }
-
     if (m_mainPlotWindow && !m_mainPlotWindow->isVisible())
     {
         m_mainPlotWindow->close();
-
-        return true;
     }
-
-    return false;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1540,6 +1642,8 @@ bool RiaApplication::tryClosePlotWindow()
 //--------------------------------------------------------------------------------------------------
 void RiaApplication::addToRecentFiles(const QString& fileName)
 {
+    CVF_ASSERT(m_recentFileActionProvider &&
+               "The provider needs to be created before any attempts to use the recent file actions");
     m_recentFileActionProvider->addFileName(fileName);
 }
 
@@ -1548,6 +1652,8 @@ void RiaApplication::addToRecentFiles(const QString& fileName)
 //--------------------------------------------------------------------------------------------------
 std::vector<QAction*> RiaApplication::recentFileActions() const
 {
+    CVF_ASSERT(m_recentFileActionProvider &&
+               "The provider needs to be created before any attempts to use the recent file actions");
     return m_recentFileActionProvider->actions();
 }
 
@@ -1608,16 +1714,22 @@ void RiaApplication::waitUntilCommandObjectsHasBeenProcessed()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RiaApplication::saveWinGeoAndDockToolBarLayout()
+void RiaApplication::saveMainWinGeoAndDockToolBarLayout()
 {
-    if (m_mainPlotWindow)
+    if (isMain3dWindowVisible())
+    {
+        m_mainWindow->saveWinGeoAndDockToolBarLayout();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiaApplication::savePlotWinGeoAndDockToolBarLayout()
+{
+    if (isMainPlotWindowVisible())
     {
         m_mainPlotWindow->saveWinGeoAndDockToolBarLayout();
-    }
-
-    if (RiuMainWindow::instance())
-    {
-        RiuMainWindow::instance()->saveWinGeoAndDockToolBarLayout();
     }
 }
 
@@ -1696,7 +1808,7 @@ QStringList RiaApplication::octaveArguments() const
 //--------------------------------------------------------------------------------------------------
 void RiaApplication::slotWorkerProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    RiuMainWindow::instance()->processMonitor()->stopMonitorWorkProcess();
+    m_mainWindow->processMonitor()->stopMonitorWorkProcess();
 
     // Execute delete later so that other slots that are hooked up
     // get a chance to run before we delete the object
@@ -1794,19 +1906,22 @@ bool RiaApplication::launchProcess(const QString& program, const QStringList& ar
                 SIGNAL(finished(int, QProcess::ExitStatus)),
                 SLOT(slotWorkerProcessFinished(int, QProcess::ExitStatus)));
 
-        RiuMainWindow::instance()->processMonitor()->startMonitorWorkProcess(m_workerProcess);
+        m_mainWindow->processMonitor()->startMonitorWorkProcess(m_workerProcess);
 
         m_workerProcess->start(program, arguments);
-        if (!m_workerProcess->waitForStarted(1000))
+
+        // The wait time is a compromise between large wait time when processing many octave runs after each other and short wait
+        // time when starting octave processes interactively
+        int waitTimeMilliseconds = 7 * 1000;
+        if (!m_workerProcess->waitForStarted(waitTimeMilliseconds))
         {
             m_workerProcess->close();
             m_workerProcess        = nullptr;
             m_runningWorkerProcess = false;
 
-            RiuMainWindow::instance()->processMonitor()->stopMonitorWorkProcess();
+            m_mainWindow->processMonitor()->stopMonitorWorkProcess();
 
-            QMessageBox::warning(
-                RiuMainWindow::instance(), "Script execution", "Failed to start script executable located at\n" + program);
+            QMessageBox::warning(m_mainWindow, "Script execution", "Failed to start script executable located at\n" + program);
 
             return false;
         }
@@ -1849,7 +1964,7 @@ RiaPreferences* RiaApplication::preferences()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RiaApplication::applyPreferences()
+void RiaApplication::applyPreferences(const RiaPreferences* oldPreferences)
 {
     if (m_activeReservoirView && m_activeReservoirView->viewer())
     {
@@ -1866,33 +1981,188 @@ void RiaApplication::applyPreferences()
         caf::EffectGenerator::setRenderingMode(caf::EffectGenerator::FIXED_FUNCTION);
     }
 
-    if (RiuMainWindow::instance() && RiuMainWindow::instance()->projectTreeView())
+    if (m_mainWindow && m_mainWindow->projectTreeView())
     {
-        RiuMainWindow::instance()->projectTreeView()->enableAppendOfClassNameToUiItemText(
-            m_preferences->appendClassNameToUiText());
+        m_mainWindow->projectTreeView()->enableAppendOfClassNameToUiItemText(m_preferences->appendClassNameToUiText());
         if (mainPlotWindow())
             mainPlotWindow()->projectTreeView()->enableAppendOfClassNameToUiItemText(m_preferences->appendClassNameToUiText());
     }
 
-    RiaFontCache::FontSize fontSizeType = m_preferences->fontSizeInScene();
-    m_customFont                        = RiaFontCache::getFont(fontSizeType);
+    // The creation of a font is time consuming, so make sure you really need your own font
+    // instead of using the application font
+    std::map<RiaDefines::FontSettingType, RiaFontCache::FontSize> fontSizes = m_preferences->defaultFontSizes();
+
+    m_defaultSceneFont                        = RiaFontCache::getFont(fontSizes[RiaDefines::SCENE_FONT]);    
+    m_defaultAnnotationFont                   = RiaFontCache::getFont(fontSizes[RiaDefines::ANNOTATION_FONT]);
+    m_defaultWellLabelFont                    = RiaFontCache::getFont(fontSizes[RiaDefines::WELL_LABEL_FONT]);
 
     if (this->project())
     {
         this->project()->setScriptDirectories(m_preferences->scriptDirectories());
         this->project()->updateConnectedEditors();
 
-        std::vector<Rim3dView*> visibleViews;
-        this->project()->allVisibleViews(visibleViews);
+        RimWellPathCollection* wellPathCollection = this->project()->activeOilField()->wellPathCollection();
 
-        for (auto view : visibleViews)
+        std::vector<RimViewWindow*> allViewWindows;
+        project()->descendantsIncludingThisOfType(allViewWindows);
+
+        bool existingViewsWithDifferentMeshLines   = false;
+        bool existingViewsWithCustomColors         = false;
+        bool existingViewsWithCustomZScale         = false;
+        bool existingObjectsWithCustomFonts        = false;
+        if (oldPreferences)
         {
-            RimEclipseView* eclipseView = dynamic_cast<RimEclipseView*>(view);
-            if (eclipseView)
+            for (auto viewWindow : allViewWindows)
             {
-                eclipseView->scheduleReservoirGridGeometryRegen();
+                auto rim3dView = dynamic_cast<Rim3dView*>(viewWindow);
+                if (rim3dView)
+                {
+                    if (rim3dView->meshMode() != oldPreferences->defaultMeshModeType())
+                    {
+                        existingViewsWithDifferentMeshLines = true;
+                    }
+                    if (rim3dView->backgroundColor() != oldPreferences->defaultViewerBackgroundColor())
+                    {
+                        existingViewsWithCustomColors = true;
+                    }
+                    if (rim3dView->scaleZ() != static_cast<double>(oldPreferences->defaultScaleFactorZ))
+                    {
+                        existingViewsWithCustomZScale = true;
+                    }
+
+                    RimGridView* gridView = dynamic_cast<RimGridView*>(rim3dView);
+                    if (gridView)
+                    {
+                        RiaFontCache::FontSize oldFontSize = oldPreferences->defaultAnnotationFontSize();
+                        existingObjectsWithCustomFonts = gridView->annotationCollection()->hasTextAnnotationsWithCustomFontSize(oldFontSize);
+                    }
+                    RimEclipseView* eclipseView = dynamic_cast<RimEclipseView*>(rim3dView);
+                    if (eclipseView)
+                    {
+                        if (eclipseView->wellCollection()->wellLabelColor() != oldPreferences->defaultWellLabelColor())
+                        {
+                            existingViewsWithCustomColors = true;
+                        }
+                    }
+                }
+
+                for (auto fontTypeSizePair : fontSizes)
+                {
+                    RiaFontCache::FontSize oldFontSizeEnum = oldPreferences->defaultFontSizes()[fontTypeSizePair.first];
+                    if (oldFontSizeEnum != fontTypeSizePair.second)
+                    {
+                        int oldFontSize = RiaFontCache::pointSizeFromFontSizeEnum(oldFontSizeEnum);
+                        if (viewWindow->hasCustomFontSizes(fontTypeSizePair.first, oldFontSize))
+                        {
+                            existingObjectsWithCustomFonts = true;
+                        }
+                    }
+                }
             }
-            view->scheduleCreateDisplayModelAndRedraw();
+
+            if (oldPreferences->defaultWellLabelColor() != wellPathCollection->wellPathLabelColor())
+            {
+                existingViewsWithCustomColors = true;
+            }
+        }        
+
+        bool applySettingsToAllViews = false;
+        if (existingViewsWithCustomColors || existingViewsWithCustomZScale ||
+            existingViewsWithDifferentMeshLines || existingObjectsWithCustomFonts)
+        {
+            QStringList changedData;
+            if (existingViewsWithDifferentMeshLines) changedData << "Mesh Visibility";
+            if (existingViewsWithCustomColors) changedData << "Colors";
+            if (existingViewsWithCustomZScale) changedData << "Z-Scale";
+            if (existingObjectsWithCustomFonts) changedData << "Fonts Sizes";
+
+            QString listString = changedData.takeLast();
+            if (!changedData.empty())
+            {
+                listString = changedData.join(", ") + " and " + listString;
+            }
+
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(m_mainWindow,
+                QString("Apply %1 to Existing Views?").arg(listString),
+                QString("You have changed default %1 and have existing views with different settings.\n").arg(listString) +
+                QString("Do you want to apply the new default settings to all existing views?"),
+                QMessageBox::Ok | QMessageBox::Cancel);
+            applySettingsToAllViews = (reply == QMessageBox::Ok);
+        }
+
+        std::set<caf::PdmUiItem*> uiEditorsToUpdate;
+
+        for (auto viewWindow : allViewWindows)
+        {
+            for (auto fontTypeSizePair : fontSizes)
+            {
+                RiaFontCache::FontSize oldFontSizeEnum = oldPreferences->defaultFontSizes()[fontTypeSizePair.first];
+                if (oldFontSizeEnum != fontTypeSizePair.second)
+                {
+                    int oldFontSize = RiaFontCache::pointSizeFromFontSizeEnum(oldFontSizeEnum);
+                    int newFontSize = RiaFontCache::pointSizeFromFontSizeEnum(fontTypeSizePair.second);
+                    if (viewWindow->applyFontSize(fontTypeSizePair.first, oldFontSize, newFontSize, applySettingsToAllViews))
+                    {
+                        uiEditorsToUpdate.insert(viewWindow);
+                    }
+                }
+
+            }
+
+            auto rim3dView = dynamic_cast<Rim3dView*>(viewWindow);
+            if (rim3dView)
+            {
+                if (oldPreferences && (applySettingsToAllViews || rim3dView->meshMode() == oldPreferences->defaultMeshModeType()))
+                {
+                    rim3dView->meshMode = m_preferences->defaultMeshModeType();
+                }
+
+                if (oldPreferences && (applySettingsToAllViews || rim3dView->backgroundColor() == oldPreferences->defaultViewerBackgroundColor()))
+                {
+                    rim3dView->setBackgroundColor(m_preferences->defaultViewerBackgroundColor());
+                    rim3dView->applyBackgroundColorAndFontChanges();
+                    uiEditorsToUpdate.insert(rim3dView);
+                }
+
+                if (oldPreferences && (applySettingsToAllViews || rim3dView->scaleZ == static_cast<double>(oldPreferences->defaultScaleFactorZ())))
+                {
+                    rim3dView->scaleZ = static_cast<double>(m_preferences->defaultScaleFactorZ());
+                    rim3dView->updateScaling();
+                    uiEditorsToUpdate.insert(rim3dView);
+                    if (rim3dView == activeViewWindow())
+                    {
+                        RiuMainWindow::instance()->updateScaleValue();
+                    }
+                }
+
+                RimEclipseView* eclipseView = dynamic_cast<RimEclipseView*>(rim3dView);
+                if (eclipseView)
+                {
+                    if (oldPreferences && (applySettingsToAllViews || eclipseView->wellCollection()->wellLabelColor() == oldPreferences->defaultWellLabelColor()))
+                    {
+                        eclipseView->wellCollection()->wellLabelColor = m_preferences->defaultWellLabelColor();
+                        uiEditorsToUpdate.insert(eclipseView->wellCollection());
+                    }
+                    eclipseView->scheduleReservoirGridGeometryRegen();
+                }
+                rim3dView->scheduleCreateDisplayModelAndRedraw();
+            }
+        }
+
+        if (oldPreferences)
+        {            
+            bool matchingColor = wellPathCollection->wellPathLabelColor() == oldPreferences->defaultWellLabelColor();
+            if (applySettingsToAllViews || matchingColor)
+            {
+                wellPathCollection->wellPathLabelColor = oldPreferences->defaultWellLabelColor();
+                uiEditorsToUpdate.insert(wellPathCollection);
+            }
+        }
+
+        for (caf::PdmUiItem* uiItem : uiEditorsToUpdate)
+        {
+            uiItem->updateConnectedEditors();
         }
     }
 
@@ -1990,34 +2260,43 @@ bool RiaApplication::openFile(const QString& fileName)
 
     bool loadingSucceded = false;
 
-    if (RiaApplication::hasValidProjectFileExtension(fileName))
+    QString lastUsedDialogTag;
+
+    RiaDefines::ImportFileType fileType = RiaDefines::obtainFileTypeFromFileName(fileName);
+
+    if (fileType == RiaDefines::RESINSIGHT_PROJECT_FILE)
     {
         loadingSucceded = loadProject(fileName);
     }
-    else if (fileName.contains(".egrid", Qt::CaseInsensitive) || fileName.contains(".grid", Qt::CaseInsensitive))
-    {
-        loadingSucceded = RiaImportEclipseCaseTools::openEclipseCasesFromFile(QStringList({fileName}));
-    }
-    else if (fileName.contains(".grdecl", Qt::CaseInsensitive))
-    {
-        loadingSucceded = RicImportInputEclipseCaseFeature::openInputEclipseCaseFromFileNames(QStringList(fileName));
-    }
-    else if (fileName.contains(".odb", Qt::CaseInsensitive))
+    else if (fileType == RiaDefines::GEOMECH_ODB_FILE)
     {
         loadingSucceded = openOdbCaseFromFile(fileName);
+        if (loadingSucceded) lastUsedDialogTag = "GEOMECH_MODEL";
     }
-    else if (fileName.contains(".smspec", Qt::CaseInsensitive))
+    else if ( fileType & RiaDefines::ANY_ECLIPSE_FILE)
     {
-        loadingSucceded = RicImportSummaryCasesFeature::createAndAddSummaryCasesFromFiles(QStringList({fileName}));
+        loadingSucceded = RicImportGeneralDataFeature::openEclipseFilesFromFileNames(QStringList{ fileName });
         if (loadingSucceded)
         {
-            getOrCreateAndShowMainPlotWindow();
+            lastUsedDialogTag = RiaDefines::defaultDirectoryLabel(fileType);
+
+            if (fileType & RiaDefines::ECLIPSE_SUMMARY_FILE)
+            {
+                getOrCreateAndShowMainPlotWindow();
+            }
         }
     }
 
-    if (loadingSucceded && !RiaApplication::hasValidProjectFileExtension(fileName))
+    if (loadingSucceded)
     {
-        caf::PdmUiModelChangeDetector::instance()->setModelChanged();
+        if (!lastUsedDialogTag.isEmpty())
+        {
+            RiaApplication::instance()->setLastUsedDialogDirectory(lastUsedDialogTag, QFileInfo(fileName).absolutePath());
+        }
+        if (!RiaApplication::hasValidProjectFileExtension(fileName))
+        {
+            caf::PdmUiModelChangeDetector::instance()->setModelChanged();
+        }
     }
 
     return loadingSucceded;
@@ -2030,10 +2309,9 @@ void RiaApplication::runMultiCaseSnapshots(const QString&       templateProjectF
                                            std::vector<QString> gridFileNames,
                                            const QString&       snapshotFolderName)
 {
-    RiuMainWindow* mainWnd = RiuMainWindow::instance();
-    if (!mainWnd) return;
+    if (!m_mainWindow) return;
 
-    mainWnd->hideAllDockWindows();
+    m_mainWindow->hideAllDockWindows();
 
     const size_t numGridFiles = gridFileNames.size();
     for (size_t i = 0; i < numGridFiles; i++)
@@ -2050,30 +2328,40 @@ void RiaApplication::runMultiCaseSnapshots(const QString&       templateProjectF
         }
     }
 
-    mainWnd->loadWinGeoAndDockToolBarLayout();
+    m_mainWindow->loadWinGeoAndDockToolBarLayout();
 }
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-cvf::Font* RiaApplication::standardFont()
+cvf::Font* RiaApplication::defaultSceneFont()
 {
-    CVF_ASSERT(m_standardFont.notNull());
+    CVF_ASSERT(m_defaultSceneFont.notNull());
 
     // The creation of a font is time consuming, so make sure you really need your own font
     // instead of using the application font
 
-    return m_standardFont.p();
+    return m_defaultSceneFont.p();
 }
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-cvf::Font* RiaApplication::customFont()
+cvf::Font* RiaApplication::defaultAnnotationFont()
 {
-    CVF_ASSERT(m_customFont.notNull());
+    CVF_ASSERT(m_defaultAnnotationFont.notNull());
 
-    return m_customFont.p();
+    return m_defaultAnnotationFont.p();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+cvf::Font* RiaApplication::defaultWellLabelFont()
+{
+    CVF_ASSERT(m_defaultWellLabelFont.notNull());
+
+    return m_defaultWellLabelFont.p();
 }
 
 //--------------------------------------------------------------------------------------------------

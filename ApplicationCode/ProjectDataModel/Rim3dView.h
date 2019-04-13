@@ -18,6 +18,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
+#include "RiaDefines.h"
 #include "RiuViewerToViewInterface.h"
 #include "RimNameConfig.h"
 #include "RimViewWindow.h"
@@ -95,11 +96,10 @@ public:
 
     // Draw style 
 
-    enum MeshModeType    { FULL_MESH, FAULTS_MESH, NO_MESH    };
     enum SurfaceModeType { SURFACE,   FAULTS,      NO_SURFACE };
 
-    caf::PdmField< caf::AppEnum< MeshModeType > >    meshMode;
-    caf::PdmField< caf::AppEnum< SurfaceModeType > > surfaceMode;
+    caf::PdmField< caf::AppEnum< RiaDefines::MeshModeType > > meshMode;
+    caf::PdmField< caf::AppEnum< SurfaceModeType > >          surfaceMode;
 
     RiuViewer*                              viewer() const;
 
@@ -116,6 +116,8 @@ public:
     void                                    setBackgroundColor(const cvf::Color3f& newBackgroundColor);
     void                                    setShowGridBox(bool showGridBox);
 
+    void                                    applyBackgroundColorAndFontChanges();
+
     void                                    disableLighting(bool disable);
     bool                                    isLightingDisabled() const;
 
@@ -125,8 +127,8 @@ public:
     virtual bool                            showActiveCellsOnly();
     virtual bool                            isUsingFormationNames() const = 0;
 
-    QImage                          snapshotWindowContent() override;
-    void                            zoomAll() override;
+    QImage                                  snapshotWindowContent() override;
+    void                                    zoomAll() override;
     void                                    forceShowWindowOn();
 
     // Animation
@@ -143,7 +145,9 @@ public:
     void                                    createHighlightAndGridBoxDisplayModelWithRedraw();
     void                                    updateGridBoxData();
     void                                    updateAnnotationItems();   
+    void                                    updateScaling();
     void                                    updateZScaleLabel();
+    void                                    updateMeasurement();
 
     bool                                    isMasterView() const;
 
@@ -151,6 +155,10 @@ public:
 
     virtual RimCase*                        ownerCase() const = 0;
     virtual std::vector<RimLegendConfig*>   legendConfigs() const = 0;
+
+
+    bool hasCustomFontSizes(RiaDefines::FontSettingType fontSettingType, int defaultFontSize) const override;
+    bool applyFontSize(RiaDefines::FontSettingType fontSettingType, int oldFontSize, int fontSize, bool forceChange = false) override;
 
 protected:
     static void                             removeModelByName(cvf::Scene* scene, const cvf::String& modelName);
@@ -175,9 +183,6 @@ protected:
     void                                    addMeasurementToModel(cvf::ModelBasicList* wellPathModelBasicList);
 
     void                                    createHighlightAndGridBoxDisplayModel();
-
-    // Implementation of RiuViewerToViewInterface
-    void                                    applyBackgroundColor();
 
     // Implementation of RimNameConfigHolderInterface
     void                                    performAutoNameUpdate() override;
@@ -225,7 +230,7 @@ protected:
 
     void                            fieldChangedByUi(const caf::PdmFieldHandle* changedField, const QVariant& oldValue, const QVariant& newValue) override;
     void                            defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& uiOrdering) override;
-    void                    updateViewWidgetAfterCreation() override; 
+    void                            updateViewWidgetAfterCreation() override; 
     QWidget*                        createViewWidget(QWidget* mainWindowParent) override;
     void                            initAfterRead() override;
 

@@ -61,15 +61,6 @@
 namespace caf {
 
 template<>
-void caf::AppEnum< Rim3dView::MeshModeType >::setUp()
-{
-    addItem(Rim3dView::FULL_MESH,      "FULL_MESH",       "All");
-    addItem(Rim3dView::FAULTS_MESH,    "FAULTS_MESH",     "Faults only");
-    addItem(Rim3dView::NO_MESH,        "NO_MESH",         "None");
-    setDefault(Rim3dView::FULL_MESH);
-}
-
-template<>
 void caf::AppEnum< Rim3dView::SurfaceModeType >::setUp()
 {
     addItem(Rim3dView::SURFACE,              "SURFACE",             "All");
@@ -120,8 +111,7 @@ Rim3dView::Rim3dView(void)
     CAF_PDM_InitField(&m_currentTimeStep, "CurrentTimeStep", 0, "Current Time Step", "", "", "");
     m_currentTimeStep.uiCapability()->setUiHidden(true);
 
-    caf::AppEnum<Rim3dView::MeshModeType> defaultMeshType = NO_MESH;
-    if (preferences->defaultGridLines) defaultMeshType = FULL_MESH;
+    caf::AppEnum<RiaDefines::MeshModeType> defaultMeshType = preferences->defaultMeshModeType();
     CAF_PDM_InitField(&meshMode, "MeshMode", defaultMeshType, "Grid Lines",   "", "", "");
     CAF_PDM_InitFieldNoDefault(&surfaceMode, "SurfaceMode", "Grid Surface",  "", "", "");
 
@@ -505,7 +495,7 @@ void Rim3dView::setupBeforeSave()
 //--------------------------------------------------------------------------------------------------
 void Rim3dView::setMeshOnlyDrawstyle()
 {
-    meshMode.setValueWithFieldChanged(FULL_MESH);
+    meshMode.setValueWithFieldChanged(RiaDefines::FULL_MESH);
     surfaceMode.setValueWithFieldChanged(NO_SURFACE);
 }
 
@@ -515,7 +505,7 @@ void Rim3dView::setMeshOnlyDrawstyle()
 void Rim3dView::setMeshSurfDrawstyle()
 {
     surfaceMode.setValueWithFieldChanged(SURFACE);
-    meshMode.setValueWithFieldChanged(FULL_MESH);
+    meshMode.setValueWithFieldChanged(RiaDefines::FULL_MESH);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -524,7 +514,7 @@ void Rim3dView::setMeshSurfDrawstyle()
 void Rim3dView::setFaultMeshSurfDrawstyle()
 {
     surfaceMode.setValueWithFieldChanged(SURFACE);
-    meshMode.setValueWithFieldChanged(FAULTS_MESH);
+    meshMode.setValueWithFieldChanged(RiaDefines::FAULTS_MESH);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -533,7 +523,7 @@ void Rim3dView::setFaultMeshSurfDrawstyle()
 void Rim3dView::setSurfOnlyDrawstyle()
 {
     surfaceMode.setValueWithFieldChanged(SURFACE);
-    meshMode.setValueWithFieldChanged(NO_MESH);
+    meshMode.setValueWithFieldChanged(RiaDefines::NO_MESH);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -590,31 +580,7 @@ void Rim3dView::fieldChangedByUi(const caf::PdmFieldHandle* changedField, const 
     }
     else if (changedField == &scaleZ)
     {
-        if (scaleZ < 1) scaleZ = 1;
-
-        this->updateGridBoxData();
-
-        if (m_viewer)
-        {
-            cvf::Vec3d poi = m_viewer->pointOfInterest();
-            cvf::Vec3d eye, dir, up;
-            eye = m_viewer->mainCamera()->position();
-            dir = m_viewer->mainCamera()->direction();
-            up  = m_viewer->mainCamera()->up();
-
-            eye[2] = poi[2]*scaleZ()/this->scaleTransform()->worldTransform()(2, 2) + (eye[2] - poi[2]);
-            poi[2] = poi[2]*scaleZ()/this->scaleTransform()->worldTransform()(2, 2);
-
-            m_viewer->mainCamera()->setFromLookAt(eye, eye + dir, up);
-            m_viewer->setPointOfInterest(poi);
-
-            updateScaleTransform();
-            createDisplayModelAndRedraw();
-
-            m_viewer->update();
-
-            updateZScaleLabel();
-        }
+        updateScaling();
 
         RiuMainWindow::instance()->updateScaleValue();
     }
@@ -664,7 +630,7 @@ void Rim3dView::fieldChangedByUi(const caf::PdmFieldHandle* changedField, const 
     }
     else if (changedField == &m_backgroundColor)
     {
-        this->applyBackgroundColor();
+        this->applyBackgroundColorAndFontChanges();
     }
     else if (changedField == &maximumFrameRate)
     {
@@ -822,11 +788,55 @@ void Rim3dView::updateAnnotationItems()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+void Rim3dView::updateScaling()
+{
+    if (scaleZ < 1) scaleZ = 1;
+
+    this->updateGridBoxData();
+
+    if (m_viewer)
+    {
+        cvf::Vec3d poi = m_viewer->pointOfInterest();
+        cvf::Vec3d eye, dir, up;
+        eye = m_viewer->mainCamera()->position();
+        dir = m_viewer->mainCamera()->direction();
+        up  = m_viewer->mainCamera()->up();
+
+        eye[2] = poi[2] * scaleZ() / this->scaleTransform()->worldTransform()(2, 2) + (eye[2] - poi[2]);
+        poi[2] = poi[2] * scaleZ() / this->scaleTransform()->worldTransform()(2, 2);
+
+        m_viewer->mainCamera()->setFromLookAt(eye, eye + dir, up);
+        m_viewer->setPointOfInterest(poi);
+
+        updateScaleTransform();
+        createDisplayModelAndRedraw();
+
+        m_viewer->update();
+
+        updateZScaleLabel();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 void Rim3dView::updateZScaleLabel()
 {
     // Update Z scale label
     int scale = static_cast<int>(scaleZ());
     m_viewer->setZScale(scale);
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void Rim3dView::updateMeasurement()
+{
+    if (m_viewer)
+    {
+        appendMeasurementToModel();
+        m_viewer->update();
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -886,11 +896,12 @@ void Rim3dView::setShowGridBox(bool showGridBox)
 //--------------------------------------------------------------------------------------------------
 /// 
 //--------------------------------------------------------------------------------------------------
-void Rim3dView::applyBackgroundColor()
+void Rim3dView::applyBackgroundColorAndFontChanges()
 {
     if (m_viewer != nullptr)
     {
         m_viewer->mainCamera()->viewport()->setClearColor(cvf::Color4f(backgroundColor()));
+        m_viewer->updateFonts();
     }
     updateGridBoxData();
     updateAnnotationItems();
@@ -945,14 +956,14 @@ void Rim3dView::updateDisplayModelVisibility()
         mask |= intersectionCellFaceBit;
     }
 
-    if (meshMode == FULL_MESH)
+    if (meshMode == RiaDefines::FULL_MESH)
     {
         mask |= uintMeshSurfaceBit;
         mask |= uintMeshFaultBit;
         mask |= intersectionCellMeshBit;
         mask |= intersectionFaultMeshBit;
     }
-    else if (meshMode == FAULTS_MESH)
+    else if (meshMode == RiaDefines::FAULTS_MESH)
     {
         mask |= uintMeshFaultBit;
         mask |= intersectionFaultMeshBit;
@@ -998,6 +1009,27 @@ cvf::ref<caf::DisplayCoordTransform> Rim3dView::displayCoordTransform() const
     }
 
     return coordTrans;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool Rim3dView::hasCustomFontSizes(RiaDefines::FontSettingType fontSettingType, int defaultFontSize) const
+{
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool Rim3dView::applyFontSize(RiaDefines::FontSettingType fontSettingType, int oldFontSize, int fontSize, bool forceChange /*= false*/)
+{
+    if (fontSettingType == RiaDefines::SCENE_FONT)
+    {
+        applyBackgroundColorAndFontChanges();
+        return true;
+    }
+    return false;
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -18,12 +18,14 @@
 
 #pragma once
 
+#include "RiuDraggableOverlayFrame.h"
+
 #include <QWidget>
 
 class QLabel;
-namespace cvf
+namespace caf
 {
-    class OverlayItem;
+class TitledOverlayFrame;
 }
 
 //==================================================================================================
@@ -31,18 +33,15 @@ namespace cvf
 //
 //
 //==================================================================================================
-class RiuCvfOverlayItemWidget : public QWidget
+class RiuCvfOverlayItemWidget : public RiuDraggableOverlayFrame
 {
     Q_OBJECT
 public:
-    explicit RiuCvfOverlayItemWidget(QWidget* parent = nullptr);
+    explicit RiuCvfOverlayItemWidget(QWidget* parent = nullptr, QWidget* widgetToSnapTo = nullptr);
     ~RiuCvfOverlayItemWidget() override;
 
-    void updateFromOverlyItem( cvf::OverlayItem * item);
+    void updateFromOverlayItem( caf::TitledOverlayFrame* item);
 
    // virtual QSize   sizeHint() const override;
    // virtual QSize   minimumSizeHint() const override;
-
-protected:
-    QLabel*                    m_overlayItemLabel;
 };

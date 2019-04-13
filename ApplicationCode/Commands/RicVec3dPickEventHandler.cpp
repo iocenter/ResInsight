@@ -19,6 +19,7 @@
 
 #include "RiaApplication.h"
 #include "Rim3dView.h"
+#include "RiuViewer.h"
 
 #include "cafDisplayCoordTransform.h"
 #include "cafSelectionManager.h"
@@ -38,10 +39,14 @@ bool RicVec3dPickEventHandler::handle3dPickEvent(const Ric3dPickEvent& eventObje
 {
     const Rim3dView* rimView = eventObject.m_view;
 
+    double zPickOffset = 10.0;
+
     cvf::ref<caf::DisplayCoordTransform> transForm = rimView->displayCoordTransform();
     cvf::Vec3d pickedPositionInUTM = transForm->transformToDomainCoord(eventObject.m_pickItemInfos.front().globalPickedPoint());
 
     pickedPositionInUTM.z() *= -1.0;
+    pickedPositionInUTM.z() -= zPickOffset;
+
     m_vectorField->setValueWithFieldChanged(pickedPositionInUTM);
     return true;
 }
@@ -52,7 +57,7 @@ bool RicVec3dPickEventHandler::handle3dPickEvent(const Ric3dPickEvent& eventObje
 void RicVec3dPickEventHandler::registerAsPickEventHandler()
 {
     Ric3dViewPickEventHandler::registerAsPickEventHandler();
-    RiaApplication::instance()->setOverrideCursor(Qt::CrossCursor);
+    RiuViewer::setHoverCursor(Qt::CrossCursor);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -60,5 +65,5 @@ void RicVec3dPickEventHandler::registerAsPickEventHandler()
 //--------------------------------------------------------------------------------------------------
 void RicVec3dPickEventHandler::notifyUnregistered()
 {
-    RiaApplication::instance()->restoreOverrideCursor();
+    RiuViewer::clearHoverCursor();
 }

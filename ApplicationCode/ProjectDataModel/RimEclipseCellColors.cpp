@@ -52,15 +52,15 @@ RimEclipseCellColors::RimEclipseCellColors()
 {
     CAF_PDM_InitObject("Cell Result", ":/CellResult.png", "", "");
 
-    CAF_PDM_InitFieldNoDefault(&obsoleteField_legendConfig, "LegendDefinition", "Legend Definition", "", "", "");
+    CAF_PDM_InitFieldNoDefault(&obsoleteField_legendConfig, "LegendDefinition", "Color Legend", "", "", "");
     this->obsoleteField_legendConfig.xmlCapability()->setIOWritable(false);
 
     CAF_PDM_InitFieldNoDefault(&m_legendConfigData, "ResultVarLegendDefinitionList", "", "", "", "");
 
-    CAF_PDM_InitFieldNoDefault(&m_ternaryLegendConfig, "TernaryLegendDefinition", "Ternary Legend Definition", "", "", "");
+    CAF_PDM_InitFieldNoDefault(&m_ternaryLegendConfig, "TernaryLegendDefinition", "Ternary Color Legend", "", "", "");
     this->m_ternaryLegendConfig = new RimTernaryLegendConfig();
 
-    CAF_PDM_InitFieldNoDefault(&m_legendConfigPtrField, "LegendDefinitionPtrField", "Legend Definition PtrField", "", "", "");
+    CAF_PDM_InitFieldNoDefault(&m_legendConfigPtrField, "LegendDefinitionPtrField", "Color Legend PtrField", "", "", "");
 
     // Make sure we have a created legend for the default/undefined result variable
     changeLegendConfig(this->resultVariable());
@@ -229,11 +229,21 @@ void RimEclipseCellColors::updateLegendCategorySettings()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+void RimEclipseCellColors::uiTreeOrdering(caf::PdmUiTreeOrdering& uiTreeOrdering, QString uiConfigName /*= ""*/)
+{
+    defineUiTreeOrdering(uiTreeOrdering, uiConfigName);
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 void RimEclipseCellColors::setReservoirView(RimEclipseView* ownerReservoirView)
 {
-    this->setEclipseCase(ownerReservoirView->eclipseCase());
-
     m_reservoirView = ownerReservoirView;
+    if (ownerReservoirView)
+    {
+        this->setEclipseCase(ownerReservoirView->eclipseCase());
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -274,7 +284,8 @@ public :
 //--------------------------------------------------------------------------------------------------
 /// 
 //--------------------------------------------------------------------------------------------------
-void RimEclipseCellColors::updateLegendData(size_t currentTimeStep, 
+void RimEclipseCellColors::updateLegendData(RimEclipseCase*         rimEclipseCase, 
+                                            int                     currentTimeStep,
                                             RimRegularLegendConfig* legendConfig, 
                                             RimTernaryLegendConfig* ternaryLegendConfig)
 {
@@ -285,22 +296,22 @@ void RimEclipseCellColors::updateLegendData(size_t currentTimeStep,
     {
         if ( this->isFlowDiagOrInjectionFlooding() )
         {
+            CVF_ASSERT(currentTimeStep >= 0);
+
             double globalMin, globalMax;
             double globalPosClosestToZero, globalNegClosestToZero;
             RigFlowDiagResults* flowResultsData = this->flowDiagSolution()->flowDiagResults();
             RigFlowDiagResultAddress resAddr = this->flowDiagResAddress();
 
-            int integerTimeStep = static_cast<int>(currentTimeStep);
-
-            flowResultsData->minMaxScalarValues(resAddr, integerTimeStep, &globalMin, &globalMax);
-            flowResultsData->posNegClosestToZero(resAddr, integerTimeStep, &globalPosClosestToZero, &globalNegClosestToZero);
+            flowResultsData->minMaxScalarValues(resAddr, currentTimeStep, &globalMin, &globalMax);
+            flowResultsData->posNegClosestToZero(resAddr, currentTimeStep, &globalPosClosestToZero, &globalNegClosestToZero);
 
             double localMin, localMax;
             double localPosClosestToZero, localNegClosestToZero;
             if ( this->hasDynamicResult() )
             {
-                flowResultsData->minMaxScalarValues(resAddr, integerTimeStep, &localMin, &localMax);
-                flowResultsData->posNegClosestToZero(resAddr, integerTimeStep, &localPosClosestToZero, &localNegClosestToZero);
+                flowResultsData->minMaxScalarValues(resAddr, currentTimeStep, &localMin, &localMax);
+                flowResultsData->posNegClosestToZero(resAddr, currentTimeStep, &localPosClosestToZero, &localNegClosestToZero);
             }
             else
             {
@@ -318,7 +329,7 @@ void RimEclipseCellColors::updateLegendData(size_t currentTimeStep,
                                                          localPosClosestToZero, localNegClosestToZero);
             legendConfig->setAutomaticRanges(globalMin, globalMax, localMin, localMax);
 
-            if ( this->hasCategoryResult() )
+            if ( this->hasCategoryResult() && m_reservoirView)
             {
                 std::set<std::tuple<QString, int, cvf::Color3ub>, TupleCompare > categories;
                 //std::set<std::tuple<QString, int, cvf::Color3ub> > categories;
@@ -346,8 +357,6 @@ void RimEclipseCellColors::updateLegendData(size_t currentTimeStep,
         }
         else
         {
-            RimEclipseCase* rimEclipseCase = nullptr;
-            this->firstAncestorOrThisOfType(rimEclipseCase);
             CVF_ASSERT(rimEclipseCase);
             if ( !rimEclipseCase ) return;
 
@@ -366,7 +375,7 @@ void RimEclipseCellColors::updateLegendData(size_t currentTimeStep,
 
             double localMin, localMax;
             double localPosClosestToZero, localNegClosestToZero;
-            if ( this->hasDynamicResult() )
+            if ( this->hasDynamicResult() && currentTimeStep >= 0)
             {
                 cellResultsData->minMaxCellScalarValues(this->eclipseResultAddress(), currentTimeStep, localMin, localMax);
                 cellResultsData->posNegClosestToZero(this->eclipseResultAddress(), currentTimeStep, localPosClosestToZero, localNegClosestToZero);
@@ -424,8 +433,6 @@ void RimEclipseCellColors::updateLegendData(size_t currentTimeStep,
 
     // Ternary legend update
     {
-        RimEclipseCase* rimEclipseCase = nullptr;
-        this->firstAncestorOrThisOfType(rimEclipseCase);
         CVF_ASSERT(rimEclipseCase);
         if ( !rimEclipseCase ) return;
 
@@ -525,16 +532,18 @@ RimTernaryLegendConfig* RimEclipseCellColors::ternaryLegendConfig()
 //--------------------------------------------------------------------------------------------------
 void RimEclipseCellColors::updateIconState()
 {
-    RimViewController* viewController = m_reservoirView->viewController();
-    if (viewController && viewController->isResultColorControlled())
+    if (m_reservoirView)
     {
-        updateUiIconFromState(false);
+        RimViewController* viewController = m_reservoirView->viewController();
+        if (viewController && viewController->isResultColorControlled())
+        {
+            updateUiIconFromState(false);
+        }
+        else
+        {
+            updateUiIconFromState(true);
+        }
     }
-    else
-    {
-        updateUiIconFromState(true);
-    }
-
     uiCapability()->updateConnectedEditors();
 }
 

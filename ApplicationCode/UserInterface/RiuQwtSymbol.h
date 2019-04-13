@@ -62,11 +62,12 @@ public:
     void    renderSymbols(QPainter *painter, const QPointF *points, int numPoints) const override;
     void    renderSymbolLabel(QPainter *painter, const QPointF& position) const;
     QString label() const { return m_label; }
+    void    setLabel(const QString& label);
 
     void    setLabelPosition(LabelPosition labelPosition);
     
     static PointSymbolEnum cycledSymbolStyle(int indexLevel1, int indexLevel2);
-    static PointSymbolEnum cycledFilledSymbolStyle(int indexLevel);
+    static PointSymbolEnum cycledSymbolStyle(int indexLevel);
 private:
     QRect   labelBoundingRect(const QPainter* painter, const QRect& symbolRect) const;
 

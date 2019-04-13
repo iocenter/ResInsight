@@ -49,14 +49,18 @@ RimWellPathValve::RimWellPathValve()
     CAF_PDM_InitFieldNoDefault(&m_valveTemplate, "ValveTemplate", "Valve Template", "", "", "");
     CAF_PDM_InitField(&m_measuredDepth, "StartMeasuredDepth", 0.0, "Start MD", "", "", "");    
     CAF_PDM_InitFieldNoDefault(&m_multipleValveLocations, "ValveLocations", "Valve Locations", "", "", "");
-    CAF_PDM_InitField(&m_createOrEditValveTemplate, "CreateTemplate", false, "New", "", "", "");
+    CAF_PDM_InitField(&m_editValveTemplate, "EditTemplate", false, "Edit", "", "", "");
+    CAF_PDM_InitField(&m_createValveTemplate, "CreateTemplate", false, "Create", "", "", "");
     
     m_measuredDepth.uiCapability()->setUiEditorTypeName(caf::PdmUiDoubleSliderEditor::uiEditorTypeName());
     m_multipleValveLocations = new RimMultipleValveLocations;
     m_multipleValveLocations.uiCapability()->setUiTreeHidden(true);
     m_multipleValveLocations.uiCapability()->setUiTreeChildrenHidden(true);
-    m_createOrEditValveTemplate.uiCapability()->setUiLabelPosition(caf::PdmUiItemInfo::HIDDEN);
-    m_createOrEditValveTemplate.uiCapability()->setUiEditorTypeName(caf::PdmUiToolButtonEditor::uiEditorTypeName());
+    m_editValveTemplate.uiCapability()->setUiLabelPosition(caf::PdmUiItemInfo::HIDDEN);
+    m_editValveTemplate.uiCapability()->setUiEditorTypeName(caf::PdmUiToolButtonEditor::uiEditorTypeName());
+    m_createValveTemplate.uiCapability()->setUiLabelPosition(caf::PdmUiItemInfo::HIDDEN);
+    m_createValveTemplate.uiCapability()->setUiEditorTypeName(caf::PdmUiToolButtonEditor::uiEditorTypeName());
+
     nameField()->uiCapability()->setUiReadOnly(true);
 
 }
@@ -314,12 +318,31 @@ RiaDefines::WellPathComponentType RimWellPathValve::componentType() const
 //--------------------------------------------------------------------------------------------------
 QString RimWellPathValve::componentLabel() const
 {
-    if (componentType() == RiaDefines::ICD || componentType() == RiaDefines::AICD)
+    if (componentType() == RiaDefines::ICD)
     {
         if (m_multipleValveLocations->valveLocations().size() > 1)
         {
-            return "Valves";
+            return "ICDs";
         }
+        else
+        {
+            return "ICD";
+        }
+    }
+    else if (componentType() == RiaDefines::AICD)
+    {
+        if (m_multipleValveLocations->valveLocations().size() > 1)
+        {
+            return "AICDs";
+        }
+        else
+        {
+            return "AICD";
+        }
+    }
+    else if (componentType() == RiaDefines::ICV)
+    {
+        return "ICV";
     }
     return "Valve";
 }
@@ -329,6 +352,18 @@ QString RimWellPathValve::componentLabel() const
 //--------------------------------------------------------------------------------------------------
 QString RimWellPathValve::componentTypeLabel() const
 {
+    if (componentType() == RiaDefines::ICD)
+    {
+        return "ICD";
+    }
+    else if (componentType() == RiaDefines::AICD)
+    {
+        return "AICD";
+    }
+    else if (componentType() == RiaDefines::ICV)
+    {
+        return "ICV";
+    }
     return "Valve";
 }
 
@@ -422,17 +457,14 @@ void RimWellPathValve::fieldChangedByUi(const caf::PdmFieldHandle* changedField,
         applyValveLabelAndIcon();
         this->updateConnectedEditors();
     }
-    else if (changedField == &m_createOrEditValveTemplate)
+    else if (changedField == &m_createValveTemplate)
     {
-        m_createOrEditValveTemplate = false;
-        if (m_valveTemplate == nullptr)
-        {
-            RicNewValveTemplateFeature::createNewValveTemplateForValveAndUpdate(this);
-        }
-        else
-        {
-            Riu3DMainWindowTools::selectAsCurrentItem(m_valveTemplate());
-        }
+        m_createValveTemplate = false;
+        RicNewValveTemplateFeature::createNewValveTemplateForValveAndUpdate(this);
+    }
+    else if (changedField == &m_editValveTemplate)
+    {
+        Riu3DMainWindowTools::selectAsCurrentItem(m_valveTemplate());
     }
 
     RimPerforationInterval* perfInterval;
@@ -454,15 +486,11 @@ void RimWellPathValve::defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering
     uiOrdering.add(&m_valveTemplate, { true, 2, 1 });
 
     {
-        if (m_valveTemplate() == nullptr)
+        if (m_valveTemplate() != nullptr)
         {
-            m_createOrEditValveTemplate.uiCapability()->setUiName("New");
+            uiOrdering.add(&m_editValveTemplate, false);
         }
-        else
-        {
-            m_createOrEditValveTemplate.uiCapability()->setUiName("Edit");
-        }
-        uiOrdering.add(&m_createOrEditValveTemplate, { false, 1, 0 });
+        uiOrdering.add(&m_createValveTemplate, false);
     }
 
     if (componentType() == RiaDefines::ICV || componentType() == RiaDefines::ICD)

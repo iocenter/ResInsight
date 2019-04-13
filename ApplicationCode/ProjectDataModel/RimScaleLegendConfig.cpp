@@ -97,7 +97,7 @@ RimScaleLegendConfig::RimScaleLegendConfig()
         m_localAutoMin(cvf::UNDEFINED_DOUBLE),
         m_isAllTimeStepsRangeDisabled(false)
 {
-    CAF_PDM_InitObject("Legend Definition", ":/Legend.png", "", "");
+    CAF_PDM_InitObject("Color Legend", ":/Legend.png", "", "");
     CAF_PDM_InitField(&m_showLegend, "ShowLegend", true, "Show Legend", "", "", "");    
     m_showLegend.uiCapability()->setUiHidden(true);
     CAF_PDM_InitField(&m_numLevels, "NumberOfLevels", 8, "Number of Levels", "", "A hint on how many tick marks you whish.","");
@@ -110,7 +110,7 @@ RimScaleLegendConfig::RimScaleLegendConfig()
     CAF_PDM_InitField(&resultVariableName, "ResultVariableUsage", QString(""), "", "", "", "");
     resultVariableName.uiCapability()->setUiHidden(true);
 
-    cvf::Font* standardFont = RiaApplication::instance()->standardFont();
+    cvf::Font* standardFont = RiaApplication::instance()->defaultSceneFont();
     m_scaleLegend = new caf::OverlayScaleLegend(standardFont);
 
     updateFieldVisibility();
@@ -343,7 +343,7 @@ void RimScaleLegendConfig::recreateLegend()
     // has been removed, (and thus the opengl resources has been deleted) The text in 
     // the legend disappeared because of this, so workaround: recreate the legend when needed:
 
-    cvf::Font* standardFont = RiaApplication::instance()->standardFont();
+    cvf::Font* standardFont = RiaApplication::instance()->defaultSceneFont();
     m_scaleLegend = new caf::OverlayScaleLegend(standardFont);
 
     updateLegend();

@@ -40,15 +40,25 @@ class RimGridCrossPlotCurve : public RimPlotCurve
 public:
     RimGridCrossPlotCurve();
     ~RimGridCrossPlotCurve() override = default;
-    void determineColorAndSymbol(int curveSetIndex, int categoryIndex, int nCategories, bool contrastColors = false);
-    void setSamples(const QVector<QPointF>& samples);
-
+    void setGroupingInformation(int dataSetIndex, int groupIndex);
+    void setSamples(const std::vector<double>& xValues, const std::vector<double>& yValues);
+    
+    void   setCurveAutoAppearance();
+    int    groupIndex() const;
+    size_t sampleCount() const;
+    void   determineLegendIcon();
+    void   setBlackAndWhiteLegendIcons(bool blackAndWhite);
 protected:
+
+    void determineSymbol();
     void updateZoomInParentPlot() override;
     void updateLegendsInPlot() override;
     QString createCurveAutoName() override;
     void onLoadDataAndUpdate(bool updateParentPlot) override;
     void defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& uiOrdering) override;
-    QList<caf::PdmOptionItemInfo> calculateValueOptions(const caf::PdmFieldHandle* fieldNeedingOptions, bool* useOptionsOnly) override;
+
+private:
+    int     m_dataSetIndex;
+    int     m_groupIndex;
 };
 

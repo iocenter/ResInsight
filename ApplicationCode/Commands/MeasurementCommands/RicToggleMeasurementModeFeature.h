@@ -33,16 +33,35 @@ class RicToggleMeasurementModeFeature : public caf::CmdFeature
 {
     CAF_CMD_HEADER_INIT;
 
+    void refreshActionLook();
+
 protected:
     bool isCommandEnabled() override;
     void onActionTriggered( bool isChecked ) override;
     void setupActionLook(QAction* actionToSetup) override;
     bool isCommandChecked() override;
 
-private:
-    void refreshActionLook();
-
-private:
+protected:
     RimMeasurement* measurement() const;
     Rim3dView* activeView() const;
+
+private:
+    void refreshPolyMeasuremeantActionLook();
+};
+
+//==================================================================================================
+///
+//==================================================================================================
+class RicTogglePolyMeasurementModeFeature : public RicToggleMeasurementModeFeature
+{
+    CAF_CMD_HEADER_INIT;
+
+protected:
+    void onActionTriggered(bool isChecked) override;
+    void setupActionLook(QAction* actionToSetup) override;
+    bool isCommandChecked() override;
+
+private:
+    void refreshMeasurementActionLook();
+
 };

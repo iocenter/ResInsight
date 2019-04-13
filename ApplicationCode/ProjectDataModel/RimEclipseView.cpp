@@ -56,6 +56,7 @@
 #include "RimFracture.h"
 #include "RimFractureTemplateCollection.h"
 #include "RimGridCollection.h"
+#include "RimGridCrossPlotDataSet.h"
 #include "RimIntersection.h"
 #include "RimIntersectionCollection.h"
 #include "RimOilField.h"
@@ -552,13 +553,23 @@ void RimEclipseView::createDisplayModel()
         updateLegends();
     }
 
-    std::vector<RimFlowCharacteristicsPlot*> objects;
-    this->objectsWithReferringPtrFieldsOfType(objects);
-    for (auto plot : objects)
+    std::vector<RimFlowCharacteristicsPlot*> characteristicsPlots;
+    this->objectsWithReferringPtrFieldsOfType(characteristicsPlots);
+    for (auto plot : characteristicsPlots)
     {
         if (plot != nullptr)
         {
             plot->viewGeometryUpdated();
+        }
+    }
+
+    std::vector<RimGridCrossPlotDataSet*> curveSets;
+    this->objectsWithReferringPtrFieldsOfType(curveSets);
+    for (auto curveSet : curveSets)
+    {
+        if (curveSet != nullptr)
+        {
+            curveSet->cellFilterViewUpdated();
         }
     }
 
@@ -1148,7 +1159,7 @@ void RimEclipseView::updateLegends()
         {
             if (this->cellEdgeResult()->isUsingSingleVariable())
             {
-                this->cellEdgeResult()->singleVarEdgeResultColors()->updateLegendData(m_currentTimeStep);
+                this->cellEdgeResult()->singleVarEdgeResultColors()->updateLegendData(m_eclipseCase, m_currentTimeStep);
             }
             else
             {
@@ -1215,7 +1226,7 @@ void RimEclipseView::updateMinMaxValuesAndAddLegendToView(QString               
                                                           RimEclipseCellColors*   resultColors,
                                                           RigCaseCellResultsData* cellResultsData)
 {
-    resultColors->updateLegendData(m_currentTimeStep);
+    resultColors->updateLegendData(m_eclipseCase, m_currentTimeStep);
 
     if (resultColors->hasResult() && resultColors->legendConfig()->showLegend())
     {
@@ -1223,6 +1234,13 @@ void RimEclipseView::updateMinMaxValuesAndAddLegendToView(QString               
         if (!resultColors->diffResultUiShortName().isEmpty())
         {
             title += QString("\n%1").arg(resultColors->diffResultUiShortName());
+        }
+
+        if (resultColors->hasDualPorFractureResult())
+        {
+            QString porosityModelText = caf::AppEnum<RiaDefines::PorosityModelType>::uiText(resultColors->porosityModel());
+
+            title += QString("\nDual Por : %1").arg(porosityModelText);
         }
 
         resultColors->legendConfig()->setTitle(title);

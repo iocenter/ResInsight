@@ -17,7 +17,6 @@
 /////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-
 #include "cafPdmChildArrayField.h"
 #include "cafPdmObject.h"
 
@@ -43,8 +42,4 @@ public:
 
 private:
     caf::PdmChildArrayField<RimGridCrossPlot*> m_gridCrossPlots;
-
-public:
 };
-
-

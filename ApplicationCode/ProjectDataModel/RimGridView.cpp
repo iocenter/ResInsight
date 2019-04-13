@@ -27,16 +27,19 @@
 #include "RimIntersectionCollection.h"
 #include "RimProject.h"
 #include "RimPropertyFilterCollection.h"
+#include "RimTextAnnotation.h"
 #include "RimViewController.h"
 #include "RimViewLinker.h"
 #include "RimViewLinkerCollection.h"
 #include "RimViewNameConfig.h"
 
 #include "Riu3DMainWindowTools.h"
+#include "RiuMainWindow.h"
 
 #include "cvfModel.h"
 #include "cvfScene.h"
-#include "RiuMainWindow.h"
+
+#include <set>
 
 
 CAF_PDM_XML_ABSTRACT_SOURCE_INIT(RimGridView, "GenericGridView"); // Do not use. Abstract class 
@@ -285,6 +288,45 @@ bool RimGridView::isGridVisualizationMode() const
 }
 
 //--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimGridView::hasCustomFontSizes(RiaDefines::FontSettingType fontSettingType, int defaultFontSize) const
+{
+    bool hasCustomFonts = Rim3dView::hasCustomFontSizes(fontSettingType, defaultFontSize);
+    if (fontSettingType == RiaDefines::ANNOTATION_FONT)
+    {
+        auto                   annotations         = annotationCollection();
+        RiaFontCache::FontSize defaultFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize(defaultFontSize);
+        hasCustomFonts = annotations->hasTextAnnotationsWithCustomFontSize(defaultFontSizeEnum) || hasCustomFonts;
+    }
+    return hasCustomFonts;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimGridView::applyFontSize(RiaDefines::FontSettingType fontSettingType,
+                                int                         oldFontSize,
+                                int                         fontSize,
+                                bool                        forceChange /*= false*/)
+{
+    bool anyChange = Rim3dView::applyFontSize(fontSettingType, oldFontSize, fontSize, forceChange);
+    if (fontSettingType == RiaDefines::ANNOTATION_FONT)
+    {
+        auto                   annotations = annotationCollection();
+        RiaFontCache::FontSize oldFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize(oldFontSize);
+        RiaFontCache::FontSize newFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize(fontSize);
+        bool applyFontSizes = forceChange || !annotations->hasTextAnnotationsWithCustomFontSize(oldFontSizeEnum);
+
+        if (applyFontSizes)
+        {
+            anyChange = annotations->applyFontSizeToAllTextAnnotations(oldFontSizeEnum, newFontSizeEnum, forceChange) || anyChange;
+        }
+    }
+    return anyChange;
+}
+
+//--------------------------------------------------------------------------------------------------
 /// 
 //--------------------------------------------------------------------------------------------------
 Rim3dOverlayInfoConfig* RimGridView::overlayInfoConfig() const
@@ -315,7 +357,7 @@ void RimGridView::initAfterRead()
         // Current : Grid visualization mode is directly defined by m_gridCollection->isActive
         // This change was introduced in https://github.com/OPM/ResInsight/commit/f7bfe8d0
 
-        bool isGridVisualizationModeBefore_2018_1_1 = ((surfaceMode() == RimGridView::SURFACE) || (meshMode() == RimGridView::FULL_MESH));
+        bool isGridVisualizationModeBefore_2018_1_1 = ((surfaceMode() == RimGridView::SURFACE) || (meshMode() == RiaDefines::FULL_MESH));
 
         m_gridCollection->setActive(isGridVisualizationModeBefore_2018_1_1);
         if (!isGridVisualizationModeBefore_2018_1_1)
@@ -324,7 +366,7 @@ void RimGridView::initAfterRead()
             // If was showing with mesh and/or surfaces, turn to full mesh/surf mode to show the mesh, 
             // and to avoid a strange setup when dropping out into grid mode again
             if (surfaceMode() != RimGridView::NO_SURFACE) surfaceMode = RimGridView::SURFACE;
-            if (meshMode() != RimGridView::NO_MESH) meshMode = RimGridView::FULL_MESH;
+            if (meshMode() != RiaDefines::NO_MESH) meshMode = RiaDefines::FULL_MESH;
         }
     }
 }

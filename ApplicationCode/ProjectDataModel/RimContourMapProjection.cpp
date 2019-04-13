@@ -637,14 +637,14 @@ bool RimContourMapProjection::geometryNeedsUpdating() const
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-bool RimContourMapProjection::timestepRangeNeedsUpdating() const
+bool RimContourMapProjection::resultRangeIsValid() const
 {
     if (m_minResultAllTimeSteps == std::numeric_limits<double>::infinity() ||
         m_maxResultAllTimeSteps == -std::numeric_limits<double>::infinity())
     {
-        return true;
+        return false;
     }
-    return false;
+    return true;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -720,18 +720,16 @@ double RimContourMapProjection::minValue(const std::vector<double>& aggregatedRe
 //--------------------------------------------------------------------------------------------------
 std::pair<double, double> RimContourMapProjection::minmaxValuesAllTimeSteps()
 {
-    if (timestepRangeNeedsUpdating())
+    if (!resultRangeIsValid())
     {
         clearTimeStepRange();
 
+        m_minResultAllTimeSteps = std::min(m_minResultAllTimeSteps, minValue(m_aggregatedResults));
+        m_maxResultAllTimeSteps = std::max(m_maxResultAllTimeSteps, maxValue(m_aggregatedResults));
+
         for (int i = 0; i < (int)baseView()->ownerCase()->timeStepStrings().size() - 1; ++i)
         {
-            if (i == m_currentResultTimestep)
-            {
-                m_minResultAllTimeSteps = std::min(m_minResultAllTimeSteps, minValue(m_aggregatedResults));
-                m_maxResultAllTimeSteps = std::max(m_maxResultAllTimeSteps, maxValue(m_aggregatedResults));
-            }
-            else
+            if (i != m_currentResultTimestep)
             {
                 std::vector<double> aggregatedResults = generateResults(i);
                 m_minResultAllTimeSteps = std::min(m_minResultAllTimeSteps, minValue(aggregatedResults));
@@ -1078,10 +1076,8 @@ void RimContourMapProjection::generateContourPolygons()
 {
     std::vector<ContourPolygons> contourPolygons;
 
-    const double areaTreshold = 1.5 * (m_sampleSpacing * m_sampleSpacing) / (sampleSpacingFactor() * sampleSpacingFactor());
-
     std::vector<double> contourLevels;
-    if (legendConfig()->mappingMode() != RimRegularLegendConfig::CATEGORY_INTEGER)
+    if (resultRangeIsValid() && legendConfig()->mappingMode() != RimRegularLegendConfig::CATEGORY_INTEGER)
     {
         legendConfig()->scalarMapper()->majorTickValues(&contourLevels);
         int nContourLevels = static_cast<int>(contourLevels.size());
@@ -1101,61 +1097,46 @@ void RimContourMapProjection::generateContourPolygons()
                     contourLevels.front() *= 0.5;
                 }
 
+                double simplifyEpsilon = m_smoothContourLines() ? 5.0e-2 * m_sampleSpacing : 1.0e-3 * m_sampleSpacing;
+
+                if (nContourLevels >= 10)
+                {
+                    simplifyEpsilon *= 2.0;
+                }
+                if (numberOfCells() > 100000)
+                {
+                    simplifyEpsilon *= 2.0;
+                }
+
                 std::vector<caf::ContourLines::ListOfLineSegments> unorderedLineSegmentsPerLevel =
                     caf::ContourLines::create(m_aggregatedVertexResults, xVertexPositions(), yVertexPositions(), contourLevels);
 
-                std::vector<ContourPolygons>(unorderedLineSegmentsPerLevel.size()).swap(contourPolygons);
+                contourPolygons = std::vector<ContourPolygons>(unorderedLineSegmentsPerLevel.size());
 
-                for (size_t i = 0; i < unorderedLineSegmentsPerLevel.size(); ++i)
+#pragma omp parallel for
+                for (int i = 0; i < (int)unorderedLineSegmentsPerLevel.size(); ++i)
                 {
-                    std::vector<std::vector<cvf::Vec3d>> polygonsForThisLevel;
-                    RigCellGeometryTools::createPolygonFromLineSegments(
-                        unorderedLineSegmentsPerLevel[i], polygonsForThisLevel, 1.0e-8);
-                    for (size_t j = 0; j < polygonsForThisLevel.size(); ++j)
+                    contourPolygons[i] = createContourPolygonsFromLineSegments(unorderedLineSegmentsPerLevel[i], contourLevels[i]);
+    
+                    if (m_smoothContourLines())
                     {
-                        double signedArea =
-                            cvf::GeometryTools::signedAreaPlanarPolygon(cvf::Vec3d::Z_AXIS, polygonsForThisLevel[j]);
-                        ContourPolygon contourPolygon;
-                        contourPolygon.value = contourLevels[i];
-                        if (signedArea < 0.0)
-                        {
-                            contourPolygon.vertices.insert(
-                                contourPolygon.vertices.end(), polygonsForThisLevel[j].rbegin(), polygonsForThisLevel[j].rend());
-                        }
-                        else
-                        {
-                            contourPolygon.vertices = polygonsForThisLevel[j];
-                        }
-
-                        contourPolygon.area =
-                            cvf::GeometryTools::signedAreaPlanarPolygon(cvf::Vec3d::Z_AXIS, contourPolygon.vertices);
-                        if (contourPolygon.area > areaTreshold)
-                        {
-                            for (const cvf::Vec3d& vertex : contourPolygon.vertices)
-                            {
-                                contourPolygon.bbox.add(vertex);
-                            }
-                            contourPolygons[i].push_back(contourPolygon);
-                        }
+                        smoothContourPolygons(&contourPolygons[i], true);
                     }
-                }
-                for (size_t i = 0; i < contourPolygons.size(); ++i)
-                {
-                    if (i == 0 || m_smoothContourLines())
-                    {
-                        const ContourPolygons* clipBy = i > 0 ? &contourPolygons[i - 1] : nullptr;
-                        smoothContourPolygons(&contourPolygons[i], clipBy, true);
-                    }
-                }
 
-                double simplifyEpsilon = m_smoothContourLines() ? 5.0e-2 * m_sampleSpacing : 1.0e-3 * m_sampleSpacing;
-                for (size_t i = 0; i < contourPolygons.size(); ++i)
-                {
                     for (ContourPolygon& polygon : contourPolygons[i])
                     {
                         RigCellGeometryTools::simplifyPolygon(&polygon.vertices, simplifyEpsilon);
                     }
                 }
+
+                if (m_smoothContourLines())
+                {
+                    for (size_t i = 1; i < contourPolygons.size(); ++i)
+                    {
+                        clipContourPolygons(&contourPolygons[i], &contourPolygons[i - 1]);
+                    }
+                }
+
                 m_contourLevelCumulativeAreas.resize(contourPolygons.size(), 0.0);
                 for (int64_t i = (int64_t)contourPolygons.size() - 1; i >= 0; --i)
                 {
@@ -1171,8 +1152,48 @@ void RimContourMapProjection::generateContourPolygons()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+RimContourMapProjection::ContourPolygons
+RimContourMapProjection::createContourPolygonsFromLineSegments(caf::ContourLines::ListOfLineSegments& unorderedLineSegments,
+                                                               double contourValue)
+{
+    const double areaThreshold = 1.5 * (m_sampleSpacing * m_sampleSpacing) / (sampleSpacingFactor() * sampleSpacingFactor());
+
+    ContourPolygons contourPolygons;
+
+    std::vector<std::vector<cvf::Vec3d>> polygons;
+    RigCellGeometryTools::createPolygonFromLineSegments(unorderedLineSegments, polygons, 1.0e-8);
+    for (size_t j = 0; j < polygons.size(); ++j)
+    {
+        double         signedArea = cvf::GeometryTools::signedAreaPlanarPolygon(cvf::Vec3d::Z_AXIS, polygons[j]);
+        ContourPolygon contourPolygon;
+        contourPolygon.value = contourValue;
+        if (signedArea < 0.0)
+        {
+            contourPolygon.vertices.insert(
+                contourPolygon.vertices.end(), polygons[j].rbegin(), polygons[j].rend());
+        }
+        else
+        {
+            contourPolygon.vertices = polygons[j];
+        }
+
+        contourPolygon.area = cvf::GeometryTools::signedAreaPlanarPolygon(cvf::Vec3d::Z_AXIS, contourPolygon.vertices);
+        if (contourPolygon.area > areaThreshold)
+        {
+            for (const cvf::Vec3d& vertex : contourPolygon.vertices)
+            {
+                contourPolygon.bbox.add(vertex);
+            }
+            contourPolygons.push_back(contourPolygon);
+        }
+    }
+    return contourPolygons;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 void RimContourMapProjection::smoothContourPolygons(ContourPolygons*       contourPolygons,
-                                                    const ContourPolygons* clipBy,
                                                     bool                   favourExpansion)
 {
     CVF_ASSERT(contourPolygons);
@@ -1216,18 +1237,25 @@ void RimContourMapProjection::smoothContourPolygons(ContourPolygons*       conto
             }
             polygon.vertices.swap(newVertices);
             if (maxChange < m_sampleSpacing * 1.0e-2) break;
-        }
-        if (clipBy)
+        }        
+    }
+}
+
+void RimContourMapProjection::clipContourPolygons(ContourPolygons*       contourPolygons,
+                                                  const ContourPolygons* clipBy)
+{
+    CVF_ASSERT(clipBy);
+    for (size_t i = 0; i < contourPolygons->size(); ++i)
+    {
+        ContourPolygon& polygon = contourPolygons->at(i);
+        for (size_t j = 0; j < clipBy->size(); ++j)
         {
-            for (size_t j = 0; j < clipBy->size(); ++j)
+            std::vector<std::vector<cvf::Vec3d>> intersections =
+                RigCellGeometryTools::intersectPolygons(polygon.vertices, clipBy->at(j).vertices);
+            if (!intersections.empty())
             {
-                std::vector<std::vector<cvf::Vec3d>> intersections =
-                    RigCellGeometryTools::intersectPolygons(polygon.vertices, clipBy->at(j).vertices);
-                if (!intersections.empty())
-                {
-                    polygon.vertices = intersections.front();
-                    polygon.area     = std::abs(cvf::GeometryTools::signedAreaPlanarPolygon(cvf::Vec3d::Z_AXIS, polygon.vertices));
-                }
+                polygon.vertices = intersections.front();
+                polygon.area = std::abs(cvf::GeometryTools::signedAreaPlanarPolygon(cvf::Vec3d::Z_AXIS, polygon.vertices));
             }
         }
     }

@@ -18,7 +18,6 @@
 
 #include "RiuPvtPlotPanel.h"
 #include "RiuPvtPlotUpdater.h"
-#include "RiuSummaryQwtPlot.h"
 
 #include "RigFlowDiagSolverInterface.h"
 
@@ -148,7 +147,7 @@ void RiuPvtPlotWidget::setPlotDefaults(QwtPlot* plot)
     // Axis number font
     {
         QFont axisFont = plot->axisFont(QwtPlot::xBottom);
-        axisFont.setPixelSize(11);
+        axisFont.setPointSize(10);
         plot->setAxisFont(QwtPlot::xBottom, axisFont);
         plot->setAxisFont(QwtPlot::yLeft, axisFont);
     }
@@ -157,7 +156,7 @@ void RiuPvtPlotWidget::setPlotDefaults(QwtPlot* plot)
     {
         QwtText axisTitle = plot->axisTitle(QwtPlot::xBottom);
         QFont axisTitleFont = axisTitle.font();
-        axisTitleFont.setPixelSize(11);
+        axisTitleFont.setPointSize(10);
         axisTitleFont.setBold(false);
         axisTitle.setFont(axisTitleFont);
         axisTitle.setRenderFlags(Qt::AlignRight);
@@ -169,7 +168,7 @@ void RiuPvtPlotWidget::setPlotDefaults(QwtPlot* plot)
     {
         QwtText plotTitle = plot->title();
         QFont titleFont = plotTitle.font();
-        titleFont.setPixelSize(14);
+        titleFont.setPointSize(14);
         plotTitle.setFont(titleFont);
         plot->setTitle(plotTitle);
     }
@@ -507,7 +506,7 @@ RiuPvtPlotPanel::RiuPvtPlotPanel(QDockWidget* parent)
     m_titleLabel = new QLabel("", this);
     m_titleLabel->setAlignment(Qt::AlignHCenter);
     QFont font = m_titleLabel->font();
-    font.setPixelSize(14);
+    font.setPointSize(14);
     font.setBold(true);
     m_titleLabel->setFont(font);
 

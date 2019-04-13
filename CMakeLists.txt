@@ -69,7 +69,7 @@ mark_as_advanced(FORCE RESINSIGHT_ENABLE_COTIRE)
 if(RESINSIGHT_ENABLE_COTIRE)
 
   if(NOT COTIRE_MAXIMUM_NUMBER_OF_UNITY_INCLUDES)
-    message("cotire: Setting default number of includes to 5")
+    message(STATUS "cotire: Setting default number of includes to 5")
     set(COTIRE_MAXIMUM_NUMBER_OF_UNITY_INCLUDES 5)
   endif()
   
@@ -193,6 +193,14 @@ if (RESINSIGHT_ENABLE_PROTOTYPE_FEATURE_SOURING)
 
 	        set(RESINSIGHT_FOUND_HDF5 1)
 	        message( STATUS "Using HDF5 libraries : ${HDF5_LIBRARIES}" )
+
+			option (RESINSIGHT_HDF5_BUNDLE_LIBRARIES "Bundle HDF5 libraries" OFF)
+			mark_as_advanced(FORCE RESINSIGHT_HDF5_BUNDLE_LIBRARIES) 
+	        if (RESINSIGHT_HDF5_BUNDLE_LIBRARIES)
+		        message( STATUS "Bundling of HDF5 libraries is enabled" )
+	        endif() # RESINSIGHT_HDF5_BUNDLE_LIBRARIES
+
+
         else()
             message( WARNING "Use of HDF5 is enabled, but no HDF5 is found." )
         endif() # HDF5_FOUND
@@ -258,7 +266,7 @@ if (Qt5Core_FOUND)
 	find_package (Qt5 CONFIG REQUIRED Core Widgets OpenGL Network Script ScriptTools)
 else()
     if (RESINSIGHT_BUILD_WITH_QT5)
-		message("Could not find Qt5. Trying with Qt4")
+		message(WARNING "Could not find Qt5. Trying with Qt4")
 	endif(RESINSIGHT_BUILD_WITH_QT5)
 	find_package(Qt4 COMPONENTS QtCore QtGui QtMain REQUIRED)
     if (QT_VERSION_MINOR LESS 6)
@@ -341,9 +349,9 @@ if (CMAKE_COMPILER_IS_GNUCC)
     endif()
  
     if (HAVE_GCC_SYNC_FUNCTIONS)
-        message("GCC synchronization functions detected")
+        message(STATUS "GCC synchronization functions detected")
     else()
-        message("GCC synchronization functions NOT detected, fallback to non threadsafe reference counting")
+        message(STATUS "GCC synchronization functions NOT detected, fallback to non threadsafe reference counting")
         add_definitions(-DCVF_USE_NON_THREADSAFE_REFERENCE_COUNT)
     endif()
  
@@ -470,6 +478,29 @@ if (RESINSIGHT_PRIVATE_INSTALL)
     
 endif (RESINSIGHT_PRIVATE_INSTALL)
 
+if (RESINSIGHT_HDF5_BUNDLE_LIBRARIES)
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	  foreach (FILE_TO_COPY ${HDF5_LIBRARIES})
+        
+        # find all files containing the string "hdf"
+	    STRING( FIND ${FILE_TO_COPY} "hdf5" POS_IN_STRING ) 
+	    if(${POS_IN_STRING} GREATER -1)
+            get_filename_component(ABS_DIR ${FILE_TO_COPY} REALPATH)
+  		    message (STATUS "HDF5 bundle file - ${ABS_DIR}")
+
+            # as part of install, rename file with the extension ResInsight reports when running "ldd"
+            get_filename_component(FILE_NAME_WE ${FILE_TO_COPY} NAME_WE)
+            set(FILE_NAME_FOR_INSTALL "${FILE_NAME_WE}.so.6")
+  		    message (STATUS "HDF5 file FILE_NAME_FOR_INSTALL  - ${FILE_NAME_FOR_INSTALL}")
+      
+            install(FILES ${ABS_DIR} DESTINATION ${RESINSIGHT_INSTALL_FOLDER} RENAME ${FILE_NAME_FOR_INSTALL} )
+		endif()
+	  endforeach()
+      
+    endif()
+    
+endif (RESINSIGHT_HDF5_BUNDLE_LIBRARIES)
+
 
 ################################################################################
 # Application 
@@ -477,11 +508,11 @@ endif (RESINSIGHT_PRIVATE_INSTALL)
 add_subdirectory(ApplicationCode)
 
 if (OCTAVE_MKOCTFILE)
-  message ("Adding OctavePlugin library")
+  message (STATUS "Adding OctavePlugin library")
   
   add_subdirectory(OctavePlugin)
 else (OCTAVE_MKOCTFILE)
-  message ("Could not find OCTAVE_MKOCTFILE, skipping OctavePlugin library")
+  message (STATUS "Could not find OCTAVE_MKOCTFILE, skipping OctavePlugin library")
 endif(OCTAVE_MKOCTFILE)
 
 ################################################################################

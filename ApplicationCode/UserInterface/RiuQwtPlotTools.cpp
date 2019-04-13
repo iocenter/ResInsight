@@ -17,6 +17,8 @@
 /////////////////////////////////////////////////////////////////////////////////
 #include "RiuQwtPlotTools.h"
 
+#include "qwt_date_scale_draw.h"
+#include "qwt_date_scale_engine.h"
 #include "qwt_plot.h"
 #include "qwt_plot_grid.h"
 #include "qwt_plot_layout.h"
@@ -53,7 +55,7 @@ void RiuQwtPlotTools::setCommonPlotBehaviour(QwtPlot* plot)
 
     // Axis number font
     QFont axisFont = plot->axisFont(QwtPlot::xBottom);
-    axisFont.setPixelSize(11);
+    axisFont.setPointSize(10);
 
     plot->setAxisFont(QwtPlot::xBottom, axisFont);
     plot->setAxisFont(QwtPlot::xTop, axisFont);
@@ -67,7 +69,7 @@ void RiuQwtPlotTools::setCommonPlotBehaviour(QwtPlot* plot)
     {
         QwtText axisTitle     = plot->axisTitle(axis);
         QFont   axisTitleFont = axisTitle.font();
-        axisTitleFont.setPixelSize(11);
+        axisTitleFont.setPointSize(10);
         axisTitleFont.setBold(false);
         axisTitle.setFont(axisTitleFont);
         axisTitle.setRenderFlags(Qt::AlignRight);
@@ -99,4 +101,17 @@ void RiuQwtPlotTools::setDefaultAxes(QwtPlot* plot)
 
     plot->setAxisMaxMinor(QwtPlot::xBottom, 2);
     plot->setAxisMaxMinor(QwtPlot::yLeft, 3);
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuQwtPlotTools::enableDateBasedBottomXAxis(QwtPlot* plot)
+{
+    QwtDateScaleDraw* scaleDraw = new QwtDateScaleDraw(Qt::UTC);
+    scaleDraw->setDateFormat(QwtDate::Year, QString("dd-MM-yyyy"));
+
+    QwtDateScaleEngine* scaleEngine = new QwtDateScaleEngine(Qt::UTC);
+    plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
+    plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
 }

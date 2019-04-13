@@ -28,6 +28,8 @@
 
 #include "CompletionExportCommands/RicWellPathExportCompletionDataFeatureImpl.h"
 
+#include "RifReaderSettings.h"
+
 #include "RigActiveCellInfo.h"
 #include "RigCaseCellResultsData.h"
 #include "RigEclipseCaseData.h"
@@ -55,7 +57,6 @@
 #include "RimReloadCaseTools.h"
 #include "RimReservoirCellResultsStorage.h"
 #include "RimStimPlanColors.h"
-#include "RimTools.h"
 #include "RimWellLogPlotCollection.h"
 #include "RimWellPath.h"
 #include "RimWellPathCollection.h"
@@ -63,6 +64,9 @@
 #include "cafPdmDocument.h"
 #include "cafPdmUiTreeOrdering.h"
 #include "cafProgressInfo.h"
+
+#include "cafUtils.h"
+#include <QFileInfo>
 
 CAF_PDM_XML_ABSTRACT_SOURCE_INIT(RimEclipseCase, "RimReservoir");
 
@@ -153,6 +157,33 @@ RigEclipseCaseData* RimEclipseCase::eclipseCaseData()
 const RigEclipseCaseData* RimEclipseCase::eclipseCaseData() const
 {
     return m_rigEclipseCase.p();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimEclipseCase::ensureDeckIsParsedForEquilData()
+{
+    if (m_rigEclipseCase.notNull())
+    {
+        QString includeFileAbsolutePathPrefix;
+        {
+            RiaPreferences* prefs = RiaApplication::instance()->preferences();
+            if (prefs->readerSettings())
+            {
+                includeFileAbsolutePathPrefix = prefs->readerSettings()->includeFileAbsolutePathPrefix();
+            }
+        }
+
+        QString dataDeckFile;
+        {
+            QFileInfo fi(gridFileName());
+
+            dataDeckFile = caf::Utils::constructFullFileName(fi.absolutePath(), fi.baseName(), ".DATA");
+        }
+
+        m_rigEclipseCase->ensureDeckIsParsedForEquilData(dataDeckFile, includeFileAbsolutePathPrefix);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -519,31 +550,33 @@ void RimEclipseCase::computeCachedData()
     if (rigEclipseCase)
     {
         caf::ProgressInfo pInf(30, "");
-        pInf.setNextProgressIncrement(1);
-        rigEclipseCase->computeActiveCellBoundingBoxes();
-        pInf.incrementProgress();
 
-        pInf.setNextProgressIncrement(10);
-        pInf.setProgressDescription("Calculating Cell Search Tree");
-        rigEclipseCase->mainGrid()->computeCachedData();
-        pInf.incrementProgress();
-
-        pInf.setNextProgressIncrement(17);
-        pInf.setProgressDescription("Calculating faults");
-        rigEclipseCase->mainGrid()->calculateFaults(rigEclipseCase->activeCellInfo(RiaDefines::MATRIX_MODEL));
-        pInf.incrementProgress();
-
-        pInf.setProgressDescription("Calculating Formation Names Result");
-        if (activeFormationNames())
         {
-            rigEclipseCase->setActiveFormationNames(activeFormationNames()->formationNamesData());
-        }
-        else
-        {
-            rigEclipseCase->setActiveFormationNames(nullptr);
+            auto task = pInf.task("", 1);
+            rigEclipseCase->computeActiveCellBoundingBoxes();
         }
 
-        pInf.incrementProgress();
+        {
+            auto task = pInf.task("Calculating Cell Search Tree", 10);
+            rigEclipseCase->mainGrid()->computeCachedData();
+        }
+
+        {
+            auto task = pInf.task("Calculating faults", 17);
+            rigEclipseCase->mainGrid()->calculateFaults(rigEclipseCase->activeCellInfo(RiaDefines::MATRIX_MODEL));
+        }
+
+        {
+            auto task = pInf.task("Calculating Formation Names Result", 2);
+            if (activeFormationNames())
+            {
+                rigEclipseCase->setActiveFormationNames(activeFormationNames()->formationNamesData());
+            }
+            else
+            {
+                rigEclipseCase->setActiveFormationNames(nullptr);
+            }
+        }
     }
 }
 
@@ -588,7 +621,7 @@ void RimEclipseCase::createTimeStepFormatString()
 {
     std::vector<QDateTime> timeStepDates = this->timeStepDates();
 
-    m_timeStepFormatString = RimTools::createTimeFormatStringFromDates(timeStepDates);
+    m_timeStepFormatString = RiaQDateTimeTools::createTimeFormatStringFromDates(timeStepDates);
 }
 
 //--------------------------------------------------------------------------------------------------

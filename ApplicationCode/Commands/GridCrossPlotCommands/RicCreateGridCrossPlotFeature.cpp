@@ -19,8 +19,11 @@
 
 #include "RiaApplication.h"
 
+#include "RimEclipseView.h"
 #include "RimGridCrossPlot.h"
 #include "RimGridCrossPlotCollection.h"
+#include "RimGridCrossPlotDataSet.h"
+#include "RimGridView.h"
 #include "RimMainPlotCollection.h"
 #include "RimProject.h"
 
@@ -45,16 +48,31 @@ bool RicCreateGridCrossPlotFeature::isCommandEnabled()
 //--------------------------------------------------------------------------------------------------
 void RicCreateGridCrossPlotFeature::onActionTriggered(bool isChecked)
 {
-    RimProject* project = RiaApplication::instance()->project();
-    RimGridCrossPlotCollection* collection = project->mainPlotCollection()->gridCrossPlotCollection();    
-    RimGridCrossPlot* plot = collection->createGridCrossPlot();
+    RimProject* project      = RiaApplication::instance()->project();
+    
+    bool launchedFromPlotCollection = true;
+    RimGridCrossPlotCollection* collection =
+        caf::SelectionManager::instance()->selectedItemAncestorOfType<RimGridCrossPlotCollection>();
+    if (!collection)
+    {
+        collection = project->mainPlotCollection()->gridCrossPlotCollection();
+        launchedFromPlotCollection = false;
+    }
+    RimGridCrossPlot* plot = collection->createGridCrossPlot();    
+    RimGridCrossPlotDataSet* dataSet = plot->createDataSet();
+
+    if (!launchedFromPlotCollection)
+    {
+        dataSet->setCellFilterView(RiaApplication::instance()->activeGridView());
+    }
     
     plot->loadDataAndUpdate();
+    plot->zoomAll();
     plot->updateConnectedEditors();
 
-    RiaApplication::instance()->project()->updateConnectedEditors();
-    RiaApplication::instance()->getOrCreateMainPlotWindow();
-    RiuPlotMainWindowTools::selectAsCurrentItem(plot);
+    collection->updateAllRequiredEditors();
+    RiaApplication::instance()->getOrCreateAndShowMainPlotWindow();
+    RiuPlotMainWindowTools::selectAsCurrentItem(dataSet);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -62,6 +80,15 @@ void RicCreateGridCrossPlotFeature::onActionTriggered(bool isChecked)
 //--------------------------------------------------------------------------------------------------
 void RicCreateGridCrossPlotFeature::setupActionLook(QAction* actionToSetup)
 {
-    actionToSetup->setText("New Grid Cross Plot");
+    RimGridCrossPlotCollection* collection  =
+        caf::SelectionManager::instance()->selectedItemAncestorOfType<RimGridCrossPlotCollection>();
+    if (!collection)
+    {
+        actionToSetup->setText("Create Grid Cross Plot from 3d View");
+    }
+    else
+    {
+        actionToSetup->setText("New Grid Cross Plot");     
+    }
     actionToSetup->setIcon(QIcon(":/SummaryXPlotsLight16x16.png"));
 }

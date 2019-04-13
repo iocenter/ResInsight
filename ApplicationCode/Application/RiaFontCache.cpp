@@ -81,3 +81,51 @@ cvf::ref<caf::FixedAtlasFont> RiaFontCache::getFont(FontSize size)
     }
     return ms_fonts[size];
 }
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+int RiaFontCache::pointSizeFromFontSizeEnum(FontSize fontSize)
+{
+    switch (fontSize)
+    {
+        case RiaFontCache::FONT_SIZE_8:
+            return 8;
+        case RiaFontCache::FONT_SIZE_10:
+            return 10;
+        case RiaFontCache::FONT_SIZE_12:
+            return 12;
+        case RiaFontCache::FONT_SIZE_14:
+            return 14;
+        case RiaFontCache::FONT_SIZE_16:
+            return 16;
+        case RiaFontCache::FONT_SIZE_24:
+            return 24;
+        case RiaFontCache::FONT_SIZE_32:
+            return 32;
+        default:
+            return 16;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+RiaFontCache::FontSize RiaFontCache::fontSizeEnumFromPointSize(int pointSize)
+{
+    std::vector<FontSize> allValues =
+    { FONT_SIZE_8, FONT_SIZE_10, FONT_SIZE_12, FONT_SIZE_14, FONT_SIZE_16, FONT_SIZE_24, FONT_SIZE_32 };
+    
+    FontSize closestEnumValue = FONT_SIZE_8;
+    int      closestDiff      = std::numeric_limits<int>::max();
+    for (FontSize enumValue : allValues)
+    {
+        int diff = std::abs(pointSizeFromFontSizeEnum(enumValue) - pointSize);
+        if (diff < closestDiff)
+        {
+            closestEnumValue = enumValue;
+            closestDiff      = diff;
+        }
+    }
+    return closestEnumValue;
+}

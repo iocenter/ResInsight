@@ -40,6 +40,7 @@
 #include "cafPdmObject.h"
 #include "cafPdmUiCommandSystemProxy.h"
 #include "cafPdmUiTreeSelectionQModel.h"
+#include "cafQShortenedLabel.h"
 
 #include <QBoxLayout>
 #include <QCheckBox>
@@ -164,7 +165,11 @@ private:
         QRect r = rect();
         QPalette pal = palette();
 
+#if QT_VERSION_MAJOR > 4
+        QStyleOptionFrame panel;
+#else
         QStyleOptionFrameV2 panel;
+#endif
         initStyleOption(&panel);
         style()->drawPrimitive(QStyle::PE_PanelLineEdit, &panel, &p, this);
         r = style()->subElementRect(QStyle::SE_LineEditContents, &panel, this);
@@ -402,7 +407,7 @@ QWidget* PdmUiTreeSelectionEditor::createEditorWidget(QWidget* parent)
 //--------------------------------------------------------------------------------------------------
 QWidget* PdmUiTreeSelectionEditor::createLabelWidget(QWidget * parent)
 {
-    m_label = new QLabel(parent);
+    m_label = new QShortenedLabel(parent);
     return m_label;
 }
 
@@ -421,6 +426,14 @@ QMargins PdmUiTreeSelectionEditor::calculateLabelContentMargins() const
         contentMargins.setBottom(contentMargins.bottom() + heightDiff / 2);
     }
     return contentMargins;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool PdmUiTreeSelectionEditor::isMultiRowEditor() const
+{
+    return true;
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -35,7 +35,7 @@
 #include "RimGeoMechView.h"
 #include "RimGridTimeHistoryCurve.h"
 #include "RimGridCrossPlot.h"
-#include "RimGridCrossPlotCurveSet.h"
+#include "RimGridCrossPlotDataSet.h"
 #include "RimIdenticalGridCaseGroup.h"
 #include "RimIntersection.h"
 #include "RimIntersectionBox.h"
@@ -134,7 +134,7 @@ bool isDeletable(caf::PdmUiItem* uiItem)
     if (dynamic_cast<RimReachCircleAnnotation*>(uiItem))         return true;
     if (dynamic_cast<RimPolylinesAnnotation*>(uiItem))           return true;
     if (dynamic_cast<RimGridCrossPlot*>(uiItem))                 return true;
-    if (dynamic_cast<RimGridCrossPlotCurveSet*>(uiItem))         return true;
+    if (dynamic_cast<RimGridCrossPlotDataSet*>(uiItem))         return true;
     return false;    
 }
 
@@ -216,4 +216,5 @@ void RicDeleteItemFeature::setupActionLook(QAction* actionToSetup)
 {
     actionToSetup->setText("Delete");
     actionToSetup->setIcon(QIcon(":/Erase.png"));
+    applyShortcutWithHintToAction(actionToSetup, QKeySequence::Delete);
 }

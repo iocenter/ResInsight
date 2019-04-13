@@ -17,17 +17,36 @@
 /////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
+#include "RigGridCrossPlotCurveGrouping.h"
+
+#include "cvfBase.h"
+#include "cvfArray.h"
+
+#include <map>
 #include <utility>
 #include <vector>
 
 class RigEclipseCaseData;
 class RigEclipseResultAddress;
 
-class RigEclipseCrossPlotDataExtractor
+class QString;
+
+struct RigEclipseCrossPlotResult
 {
-    static std::vector<std::pair<double, double>> extract(RigEclipseCaseData* caseData,
-                                                          int timeStep,
-                                                          const RigEclipseResultAddress& xAxisProperty,
-                                                          const RigEclipseResultAddress& yAxisProperty);
+    std::vector<double> xValues;
+    std::vector<double> yValues;
+    std::vector<double> groupValuesContinuous;
+    std::vector<int>    groupValuesDiscrete;
 };
 
+class RigEclipseCrossPlotDataExtractor
+{
+public:
+    static RigEclipseCrossPlotResult extract(RigEclipseCaseData*                 eclipseCase,
+                                             int                                 resultTimeStep,
+                                             const RigEclipseResultAddress&      xAddress,
+                                             const RigEclipseResultAddress&      yAddress,
+                                             RigGridCrossPlotCurveGrouping       groupingType,
+                                             const RigEclipseResultAddress&      groupAddress,
+                                             std::map<int, cvf::UByteArray>      timeStepCellVisibilityMap);
+};

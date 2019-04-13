@@ -66,17 +66,23 @@ public:
     PdmUiFormLayoutObjectEditor();
     ~PdmUiFormLayoutObjectEditor() override;
 
+public slots:
+    void slotScrollToSelectedItemsInFieldEditors() const;
+
 protected:
     /// When overriding this function, use findOrCreateGroupBox() or findOrCreateFieldEditor() for detailed control
     /// Use recursivelyConfigureAndUpdateUiItemsInGridLayoutColumn() for automatic layout of group and field widgets
     virtual void    recursivelyConfigureAndUpdateTopLevelUiOrdering(const PdmUiOrdering& topLevelUiOrdering,
                                                                     const QString& uiConfigName) = 0;
     
-    void            recursivelyConfigureAndUpdateUiOrderingInGridLayoutColumn(const PdmUiOrdering& uiOrdering,
-                                                                              QWidget* containerWidgetWithGridLayout,
-                                                                              const QString& uiConfigName);
+    bool            recursivelyConfigureAndUpdateUiOrderingInNewGridLayout(const PdmUiOrdering& uiOrdering,
+                                                                           QWidget*             containerWidget,
+                                                                           const QString&       uiConfigName);
+    int             recursivelyConfigureAndUpdateUiOrderingInGridLayout(const PdmUiOrdering& uiOrdering,
+                                                                        QWidget*             containerWidgetWithGridLayout,
+                                                                        const QString&       uiConfigName);
 
-    void recursivelyAddGroupToGridLayout(PdmUiItem*     currentItem,
+    int recursivelyAddGroupToGridLayout(PdmUiItem*     currentItem,
                                          QWidget*       containerWidget,
                                          const QString& uiConfigName,
                                          QGridLayout*   parentLayout,
@@ -86,6 +92,8 @@ protected:
 
     QMinimizePanel*         findOrCreateGroupBox(QWidget* parent, PdmUiGroup* group, const QString& uiConfigName);
     PdmUiFieldEditorHandle* findOrCreateFieldEditor(QWidget* parent, PdmUiFieldHandle* field, const QString& uiConfigName);
+
+    static void             ensureWidgetContainsEmptyGridLayout(QWidget* containerWidget, QMargins contentMargins = QMargins());
 
 private slots:
     void            groupBoxExpandedStateToggled(bool isExpanded);
