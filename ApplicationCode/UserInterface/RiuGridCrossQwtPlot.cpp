@@ -112,12 +112,39 @@ void RiuGridCrossQwtPlot::removeDataSetLegend(RimGridCrossPlotDataSet* dataSetTo
     auto it = m_legendWidgets.find(dataSetToShowLegendFor);
     if (it != m_legendWidgets.end())
     {
-        if (it->second != nullptr) it->second->deleteLater();
+        if (it->second != nullptr)
+        {
+            it->second->hide();
+            it->second->deleteLater();
+        }
 
         m_legendWidgets.erase(it);
     }
 
     this->updateLegendLayout();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuGridCrossQwtPlot::removeDanglingDataSetLegends()
+{
+    for (auto it = m_legendWidgets.begin(); it != m_legendWidgets.end();)
+    {
+        if (it->first.isNull())
+        {
+            if (it->second != nullptr)
+            {
+                it->second->hide();
+                it->second->deleteLater();
+            }
+            m_legendWidgets.erase(it++);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -248,6 +275,8 @@ void RiuGridCrossQwtPlot::updateLegendLayout()
     int ypos           = startMarginY;
     int maxColumnWidth = 0;
 
+    removeDanglingDataSetLegends();
+
     RimGridCrossPlot* crossPlot = dynamic_cast<RimGridCrossPlot*>(ownerPlotDefinition());
 
     if (!crossPlot) return;
@@ -256,29 +285,31 @@ void RiuGridCrossQwtPlot::updateLegendLayout()
 
     for (RimGridCrossPlotDataSet* dataSet : crossPlot->dataSets())
     {
-        if (!dataSet->isChecked() || !dataSet->legendConfig()->showLegend()) continue;
-
-        auto pairIt = m_legendWidgets.find(dataSet);
-        if (pairIt != m_legendWidgets.end())
+        if (dataSet->isChecked() && dataSet->groupingEnabled() && dataSet->legendConfig()->showLegend())
         {
-            RiuCvfOverlayItemWidget* overlayWidget = pairIt->second;
 
-            // Show only one copy of each legend type
-            if (!legendTypes.count(dataSet->groupParameter()))
+            auto pairIt = m_legendWidgets.find(dataSet);
+            if (pairIt != m_legendWidgets.end())
             {
-                if (ypos + overlayWidget->height() + spacing > this->canvas()->height())
+                RiuCvfOverlayItemWidget* overlayWidget = pairIt->second;
+
+                // Show only one copy of each legend type
+                if (!legendTypes.count(dataSet->groupParameter()))
                 {
-                    xpos += spacing + maxColumnWidth;
-                    ypos           = startMarginY;
-                    maxColumnWidth = 0;
+                    if (ypos + overlayWidget->height() + spacing > this->canvas()->height())
+                    {
+                        xpos += spacing + maxColumnWidth;
+                        ypos = startMarginY;
+                        maxColumnWidth = 0;
+                    }
+
+                    overlayWidget->show();
+                    overlayWidget->move(xpos, ypos);
+
+                    ypos += pairIt->second->height() + spacing;
+                    maxColumnWidth = std::max(maxColumnWidth, pairIt->second->width());
+                    legendTypes.insert(dataSet->groupParameter());
                 }
-
-                overlayWidget->show();
-                overlayWidget->move(xpos, ypos);
-
-                ypos += pairIt->second->height() + spacing;
-                maxColumnWidth = std::max(maxColumnWidth, pairIt->second->width());
-                legendTypes.insert(dataSet->groupParameter());
             }
         }
     }

@@ -18,7 +18,7 @@
 
 #include "RicCreateTemporaryLgrFeature.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaCellDividingTools.h"
 #include "RiaCompletionTypeCalculationScheduler.h"
 #include "RiaLogging.h"
@@ -110,7 +110,9 @@ void RicCreateTemporaryLgrFeature::createLgrsForWellPaths(std::vector<RimWellPat
 //--------------------------------------------------------------------------------------------------
 void RicCreateTemporaryLgrFeature::updateViews(RimEclipseCase* eclipseCase)
 {
-    RiaApplication::clearAllSelections();
+    RiaGuiApplication* app = RiaGuiApplication::instance();
+
+    app->clearAllSelections();
 
     deleteAllCachedData(eclipseCase);
     RiaApplication::instance()->project()->mainPlotCollection()->deleteAllCachedData();
@@ -344,12 +346,3 @@ void RicCreateTemporaryLgrFeature::computeCachedData(RimEclipseCase* eclipseCase
     }
 }
 
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-bool RicCreateTemporaryLgrFeature::containsAnyNonMainGridCells(const std::vector<RigCompletionDataGridCell>& cells)
-{
-    return std::find_if(cells.begin(), cells.end(), [](const RigCompletionDataGridCell& cell) {
-               return !cell.isMainGridCell();
-           }) != cells.end();
-}

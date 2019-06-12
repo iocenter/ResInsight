@@ -19,7 +19,7 @@
 
 #include "RimObservedDataCollection.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaLogging.h"
 
 #include "SummaryPlotCommands/RicPasteAsciiDataToSummaryPlotFeatureUi.h"
@@ -108,7 +108,7 @@ void updateNewSummaryObjectCreated(caf::PdmObject* object)
 
     caf::PdmUiObjectEditorHandle::updateUiAllObjectEditors();
 
-    RiuPlotMainWindow* mpw = RiaApplication::instance()->mainPlotWindow();
+    RiuPlotMainWindow* mpw = RiaGuiApplication::instance()->mainPlotWindow();
     if (mpw) mpw->updateSummaryPlotToolBar();
 }
 
@@ -149,7 +149,6 @@ RimObservedData* RimObservedDataCollection::createAndAddCvsObservedDataFromFile(
     if (!fileExists(fileName, errorText)) return nullptr;
 
     RimObservedData* observedData = nullptr;
-    bool parseOk = false;
 
     RimCsvUserData* userData = new RimCsvUserData();
     RicPasteAsciiDataToSummaryPlotFeatureUi* parseOptions = userData->parseOptions();
@@ -186,7 +185,6 @@ RimObservedData* RimObservedDataCollection::createAndAddCvsObservedDataFromFile(
     {
         this->m_observedDataArray.push_back(userData);
         observedData = userData;
-        parseOk = true;
     }
     else
     {

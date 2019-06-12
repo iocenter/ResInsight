@@ -82,7 +82,7 @@ RicExportCompletionDataSettingsUi::RicExportCompletionDataSettingsUi()
 
     CAF_PDM_InitField(&timeStep, "TimeStepIndex", 0, "    Time Step", "", "", "");
 
-    CAF_PDM_InitField(&includeMsw, "IncludeMSW", false, "Include Multi Segment Well Model", "", "", "");
+    CAF_PDM_InitField(&includeMsw, "IncludeMSW", true, "Include Multi Segment Well Model", "", "", "");
 
     CAF_PDM_InitField(&useLateralNTG, "UseLateralNTG", false, "Use NTG Horizontally", "", "", "");
 
@@ -111,6 +111,14 @@ RicExportCompletionDataSettingsUi::RicExportCompletionDataSettingsUi()
     m_fracturesEnabled    = true;
     m_perforationsEnabled = true;
     m_fishbonesEnabled    = true;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RicExportCompletionDataSettingsUi::enableIncludeMsw()
+{
+    includeMsw = true;
 }
 
 //--------------------------------------------------------------------------------------------------

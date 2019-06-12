@@ -31,6 +31,7 @@ namespace caf
 }
 
 
+class QMdiArea;
 class QMdiSubWindow;
 
 
@@ -55,7 +56,11 @@ public:
     RimMdiWindowGeometry windowGeometryForViewer(QWidget* viewer);
     void                loadWinGeoAndDockToolBarLayout();
     void                saveWinGeoAndDockToolBarLayout();
+    void                storeDefaultDockWidgetVisibilitiesIfRequired();
+    void                restoreDockWidgetVisibilities();
     void                showWindow();
+
+    void                hideAllDockWidgets();
 
     caf::PdmUiTreeView* projectTreeView() { return m_projectTreeView;}
     void                setExpanded(const caf::PdmUiItem* uiItem, bool expanded = true);
@@ -71,6 +76,9 @@ public:
 
     void                setBlockSlotSubWindowActivated(bool block);
     bool                blockSlotSubWindowActivated() const;
+
+protected:
+    void                removeViewerFromMdiArea(QMdiArea* mdiArea, QWidget* viewer);
 
 protected slots:
     void                slotDockWidgetToggleViewActionTriggered();

@@ -17,7 +17,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 #include "RicCreateGridCrossPlotFeature.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 
 #include "RimEclipseView.h"
 #include "RimGridCrossPlot.h"
@@ -71,7 +71,7 @@ void RicCreateGridCrossPlotFeature::onActionTriggered(bool isChecked)
     plot->updateConnectedEditors();
 
     collection->updateAllRequiredEditors();
-    RiaApplication::instance()->getOrCreateAndShowMainPlotWindow();
+    RiaGuiApplication::instance()->getOrCreateAndShowMainPlotWindow();
     RiuPlotMainWindowTools::selectAsCurrentItem(dataSet);
 }
 
@@ -88,7 +88,7 @@ void RicCreateGridCrossPlotFeature::setupActionLook(QAction* actionToSetup)
     }
     else
     {
-        actionToSetup->setText("New Grid Cross Plot");     
+        actionToSetup->setText("Create Grid Cross Plot");     
     }
     actionToSetup->setIcon(QIcon(":/SummaryXPlotsLight16x16.png"));
 }

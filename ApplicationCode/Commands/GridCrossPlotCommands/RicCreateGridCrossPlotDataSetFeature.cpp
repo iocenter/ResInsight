@@ -17,7 +17,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 #include "RicCreateGridCrossPlotDataSetFeature.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 
 #include "RimGridCrossPlot.h"
 #include "RimGridCrossPlotDataSet.h"
@@ -49,7 +49,7 @@ void RicCreateGridCrossPlotDataSetFeature::onActionTriggered(bool isChecked)
     RimGridCrossPlotDataSet* dataSet = crossPlot->createDataSet();
     dataSet->loadDataAndUpdate(true);
     
-    RiaApplication::instance()->getOrCreateMainPlotWindow();
+    RiaGuiApplication::instance()->getOrCreateMainPlotWindow();
     RiuPlotMainWindowTools::selectAsCurrentItem(dataSet);
 }
 
@@ -58,6 +58,6 @@ void RicCreateGridCrossPlotDataSetFeature::onActionTriggered(bool isChecked)
 //--------------------------------------------------------------------------------------------------
 void RicCreateGridCrossPlotDataSetFeature::setupActionLook(QAction* actionToSetup)
 {
-    actionToSetup->setText("New Data Set");
+    actionToSetup->setText("Create Data Set");
     actionToSetup->setIcon(QIcon(":/WellLogCurve16x16.png"));
 }

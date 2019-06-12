@@ -365,7 +365,7 @@ void RimEclipseView::createDisplayModel()
 
     // Find the number of time frames the animation needs to show the requested data.
 
-    if (isTimeStepDependentDataVisible())
+    if (isTimeStepDependentDataVisible() && currentGridCellResults()->maxTimeStepCount() > 0)
     {
         CVF_ASSERT(currentGridCellResults());
 
@@ -1199,14 +1199,30 @@ void RimEclipseView::updateLegends()
         }
     }
 
-    RimRegularLegendConfig* stimPlanLegend = fractureColors()->activeLegend();
-    if (stimPlanLegend && stimPlanLegend->showLegend())
     {
-        fractureColors()->updateLegendData();
-
-        if (fractureColors()->isChecked() && stimPlanLegend->titledOverlayFrame())
+        bool hasAnyVisibleFractures = false;
         {
-            m_viewer->addColorLegendToBottomLeftCorner(stimPlanLegend->titledOverlayFrame());
+            std::vector<RimFracture*> fractures;
+            RiaApplication::instance()->project()->activeOilField()->descendantsIncludingThisOfType(fractures);
+
+            for (const auto& f : fractures)
+            {
+                if (f->isEnabled()) hasAnyVisibleFractures = true;
+            }
+        }
+
+        if (hasAnyVisibleFractures)
+        {
+            RimRegularLegendConfig* stimPlanLegend = fractureColors()->activeLegend();
+            if (stimPlanLegend && stimPlanLegend->showLegend())
+            {
+                fractureColors()->updateLegendData();
+
+                if (fractureColors()->isChecked() && stimPlanLegend->titledOverlayFrame())
+                {
+                    m_viewer->addColorLegendToBottomLeftCorner(stimPlanLegend->titledOverlayFrame());
+                }
+            }
         }
     }
 
@@ -1717,7 +1733,7 @@ bool RimEclipseView::isTimeStepDependentDataVisible() const
         if (this->faultResultSettings()->customFaultResult()->isTernarySaturationSelected()) return true;
     }
 
-    if (this->wellPathCollection()->anyWellsContainingPerforationIntervals()) return true;
+    if (this->wellPathCollection() && this->wellPathCollection()->anyWellsContainingPerforationIntervals()) return true;
 
     if (this->hasVisibleTimeStepDependent3dWellLogCurves()) return true;
 

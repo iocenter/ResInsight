@@ -25,6 +25,7 @@
 #include "RifReaderSettings.h"
 
 #include "cafPdmFieldCvfColor.h"
+#include "cafPdmUiComboBoxEditor.h"
 #include "cafPdmUiCheckBoxEditor.h"
 #include "cafPdmUiFieldHandle.h"
 #include "cafPdmUiFilePathEditor.h"
@@ -48,7 +49,10 @@ CAF_PDM_SOURCE_INIT(RiaPreferences, "RiaPreferences");
 //--------------------------------------------------------------------------------------------------
 RiaPreferences::RiaPreferences(void)
 {
-    CAF_PDM_InitField(&navigationPolicy,                "navigationPolicy", caf::AppEnum<RiaApplication::RINavigationPolicy>(RiaApplication::NAVIGATION_POLICY_RMS), "Navigation Mode", "", "", "");
+    CAF_PDM_InitField(&navigationPolicy,                "navigationPolicy", caf::AppEnum<RiaGuiApplication::RINavigationPolicy>(RiaGuiApplication::NAVIGATION_POLICY_RMS), "Navigation Mode", "", "", "");
+
+    CAF_PDM_InitField(&enableGrpcServer, "enableGrpcServer", true, "Enable gRPC script server", "", "Remote Procedure Call Scripting Engine", "");
+    CAF_PDM_InitField(&defaultGrpcPortNumber, "defaultGrpcPort", 50051, "Default gRPC port", "", "", "");
 
     CAF_PDM_InitFieldNoDefault(&scriptDirectories,        "scriptDirectory", "Shared Script Folder(s)", "", "", "");
     scriptDirectories.uiCapability()->setUiEditorTypeName(caf::PdmUiFilePathEditor::uiEditorTypeName());
@@ -75,11 +79,11 @@ RiaPreferences::RiaPreferences(void)
 
     CAF_PDM_InitField(&defaultScaleFactorZ,                "defaultScaleFactorZ", 5, "Default Z Scale Factor", "", "", "");
 
-    CAF_PDM_InitFieldNoDefault(&defaultSceneFontSize,     "fontSizeInScene",  "Viewer Font", "", "", "");    
-    CAF_PDM_InitFieldNoDefault(&defaultAnnotationFontSize,  "defaultAnnotationFontSize", "Annotation Font Size", "", "", "");
-    CAF_PDM_InitFieldNoDefault(&defaultWellLabelFontSize,   "wellLabelFontSize", "Well Label Font Size", "", "", "");
-    CAF_PDM_InitFieldNoDefault(&defaultPlotFontSize,        "defaultPlotFontSize", "Plot Font Size", "", "", "");
-    defaultPlotFontSize = RiaFontCache::FONT_SIZE_10;
+    caf::AppEnum<RiaFontCache::FontSize> fontSize = RiaFontCache::FONT_SIZE_8;
+    CAF_PDM_InitField(&defaultSceneFontSize,        "fontSizeInScene", fontSize,  "Viewer Font Size", "", "", "");
+    CAF_PDM_InitField(&defaultAnnotationFontSize,  "defaultAnnotationFontSize", fontSize, "Annotation Font Size", "", "", "");
+    CAF_PDM_InitField(&defaultWellLabelFontSize,   "wellLabelFontSize", fontSize, "Well Label Font Size", "", "", "");
+    CAF_PDM_InitField(&defaultPlotFontSize,        "defaultPlotFontSize", fontSize, "Plot Font Size", "", "", "");
 
     CAF_PDM_InitField(&showLasCurveWithoutTvdWarning,   "showLasCurveWithoutTvdWarning", true, "Show LAS Curve Without TVD Warning", "", "", "");
     showLasCurveWithoutTvdWarning.uiCapability()->setUiLabelPosition(caf::PdmUiItemInfo::HIDDEN);
@@ -123,15 +127,12 @@ RiaPreferences::RiaPreferences(void)
     CAF_PDM_InitField(&m_showProjectChangedDialog, "showProjectChangedDialog", true, "Show 'Project has changed' dialog", "", "", "");
     m_showProjectChangedDialog.uiCapability()->setUiLabelPosition(caf::PdmUiItemInfo::HIDDEN);
 
-    CAF_PDM_InitField(&m_showOctaveWarningForMultipleInstances, "showOctaveWarningForMultipleInstances", true, "Show Octave communication warning when multiple instances are created", "", "", "");
-    m_showOctaveWarningForMultipleInstances.uiCapability()->setUiLabelPosition(caf::PdmUiItemInfo::HIDDEN);
-
     CAF_PDM_InitFieldNoDefault(&m_readerSettings,        "readerSettings", "Reader Settings", "", "", "");
     m_readerSettings = new RifReaderSettings;
 
     m_tabNames << "General";
     m_tabNames << "Eclipse";
-    m_tabNames << "Octave";
+    m_tabNames << "Scripting";
     if (RiaApplication::enableDevelopmentFeatures())
     {
         m_tabNames << "System";
@@ -174,7 +175,6 @@ void RiaPreferences::defineEditorAttribute(const caf::PdmFieldHandle* field, QSt
             field == &showLasCurveWithoutTvdWarning ||
             field == &holoLensDisableCertificateVerification ||
             field == &m_showProjectChangedDialog ||
-            field == &m_showOctaveWarningForMultipleInstances ||
             field == &showLegendBackground)
     {
         caf::PdmUiCheckBoxEditorAttribute* myAttr = dynamic_cast<caf::PdmUiCheckBoxEditorAttribute*>(attribute);
@@ -191,6 +191,12 @@ void RiaPreferences::defineEditorAttribute(const caf::PdmFieldHandle* field, QSt
             myAttr->m_selectDirectory = true;
         }
     }
+    if (field == &defaultSceneFontSize || field == &defaultWellLabelFontSize ||
+        field == &defaultAnnotationFontSize || field == &defaultPlotFontSize)
+    {
+        caf::PdmUiComboBoxEditorAttribute* myAttr = dynamic_cast<caf::PdmUiComboBoxEditorAttribute*>(attribute);
+        myAttr->minimumContentsLength = 2;
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -202,16 +208,16 @@ void RiaPreferences::defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& 
     {
         caf::PdmUiGroup* colorGroup = uiOrdering.addNewGroup("Default Colors");
         colorGroup->add(&defaultViewerBackgroundColor);
-        colorGroup->add(&defaultGridLineColors);
+        colorGroup->add(&defaultGridLineColors, false);
         colorGroup->add(&defaultFaultGridLineColors);
-        colorGroup->add(&defaultWellLabelColor);
-
+        colorGroup->add(&defaultWellLabelColor, false);
+        
         caf::PdmUiGroup* fontGroup = uiOrdering.addNewGroup("Default Font Sizes");
         fontGroup->add(&defaultSceneFontSize);
         fontGroup->add(&defaultAnnotationFontSize, false);
         fontGroup->add(&defaultWellLabelFontSize);
         fontGroup->add(&defaultPlotFontSize, false);
-
+        
         caf::PdmUiGroup* viewsGroup = uiOrdering.addNewGroup("3d Views");
         viewsGroup->add(&defaultMeshModeType);
         viewsGroup->add(&navigationPolicy);
@@ -232,7 +238,7 @@ void RiaPreferences::defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& 
         newCaseBehaviourGroup->add(&loadAndShowSoil);
     
         m_readerSettings->defineUiOrdering(uiConfigName, *newCaseBehaviourGroup);
-
+        
         caf::PdmUiGroup* restartBehaviourGroup = uiOrdering.addNewGroup("Origin Files");
         restartBehaviourGroup->add(&summaryRestartFilesShowImportDialog);
         caf::PdmUiGroup* summaryImportOptionGroup = restartBehaviourGroup->addNewGroup("Origin Summary Files");
@@ -242,6 +248,12 @@ void RiaPreferences::defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& 
     }
     else if (uiConfigName == m_tabNames[2])
     {
+#ifdef ENABLE_GRPC
+        caf::PdmUiGroup* grpcGroup = uiOrdering.addNewGroup("gRPC Server");
+        grpcGroup->add(&enableGrpcServer);
+        grpcGroup->add(&defaultGrpcPortNumber);
+#endif
+
         caf::PdmUiGroup* octaveGroup = uiOrdering.addNewGroup("Octave");
         octaveGroup->add(&octaveExecutable);
         octaveGroup->add(&octaveShowHeaderInfoWhenExecutingScripts);
@@ -256,7 +268,6 @@ void RiaPreferences::defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& 
         uiOrdering.add(&m_appendFieldKeywordToToolTipText);
 
         uiOrdering.add(&m_showProjectChangedDialog);
-        uiOrdering.add(&m_showOctaveWarningForMultipleInstances);
 
         uiOrdering.add(&m_showTestToolbar);
         uiOrdering.add(&m_includeFractureDebugInfoFile);
@@ -285,6 +296,19 @@ QList<caf::PdmOptionItemInfo> RiaPreferences::calculateValueOptions(const caf::P
     }
 
     return options;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiaPreferences::initAfterRead()
+{
+    // If the stored font size is larger than the maximum enum value, the stored font size is actually point size
+    int defaultSceneFontEnumValue = static_cast<int>(defaultSceneFontSize.v());
+    if (defaultSceneFontEnumValue > (int) RiaFontCache::MAX_FONT_SIZE)
+    {
+        defaultSceneFontSize = RiaFontCache::fontSizeEnumFromPointSize(defaultSceneFontEnumValue);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -346,19 +370,6 @@ bool RiaPreferences::showProjectChangedDialog() const
     }
 
     return m_showProjectChangedDialog();
-}
-
-//--------------------------------------------------------------------------------------------------
-/// 
-//--------------------------------------------------------------------------------------------------
-bool RiaPreferences::showOctaveCommunicationWarning() const
-{
-    if (!RiaApplication::enableDevelopmentFeatures())
-    {
-        return true;
-    }
-
-    return m_showOctaveWarningForMultipleInstances();
 }
 
 //--------------------------------------------------------------------------------------------------

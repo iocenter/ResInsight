@@ -113,7 +113,6 @@ public:
     QString              caseNameString() const;
     QString              axisVariableString() const;
     QString              timeStepString() const;
-    std::vector<QString> groupStrings() const;
 
     std::map<NameComponents, QString> nameComponents() const;
 
@@ -149,6 +148,8 @@ protected:
 
     void defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& uiOrdering) override;
     void fieldChangedByUi(const caf::PdmFieldHandle* changedField, const QVariant& oldValue, const QVariant& newValue) override;
+    void childFieldChangedByUi(const caf::PdmFieldHandle* changedChildField) override;
+
     QList<caf::PdmOptionItemInfo> calculateValueOptions(const caf::PdmFieldHandle* fieldNeedingOptions,
                                                         bool*                      useOptionsOnly) override;
     void triggerPlotNameUpdateAndReplot();

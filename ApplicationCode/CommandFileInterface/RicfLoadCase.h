@@ -22,6 +22,15 @@
 
 #include "cafPdmField.h"
 
+class RicfLoadCaseResult : public caf::PdmObject
+{
+    CAF_PDM_HEADER_INIT;
+public:
+    RicfLoadCaseResult(int caseId = -1);
+public:
+    caf::PdmField<int> caseId;
+};
+
 //==================================================================================================
 //
 //
@@ -34,7 +43,7 @@ class RicfLoadCase : public RicfCommandObject
 public:
     RicfLoadCase();
 
-    void execute() override;
+    RicfCommandResponse execute() override;
 
 private:
     caf::PdmField<QString> m_path;

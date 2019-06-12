@@ -18,7 +18,7 @@
 
 #include "RiuMdiSubWindow.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 
 #include "Rim3dView.h"
 #include "RimSummaryPlot.h"
@@ -41,6 +41,7 @@ RiuMdiSubWindow::RiuMdiSubWindow(QWidget* parent /*= 0*/, Qt::WindowFlags flags 
     , m_normalWindowGeometry(QRect())
     , m_blockTilingChanges(false)
 {
+    setWindowIcon(QIcon(":/Window16x16.png"));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -59,7 +60,7 @@ RimMdiWindowGeometry RiuMdiSubWindow::windowGeometry() const
     RimMdiWindowGeometry geo;
 
     int mainWinID = 0;
-    if (window() == RiaApplication::instance()->mainPlotWindow())
+    if (window() == RiaGuiApplication::instance()->mainPlotWindow())
     {
         mainWinID = 1;
     }
@@ -98,41 +99,25 @@ void RiuMdiSubWindow::closeEvent(QCloseEvent* event)
 {
     QWidget* mainWidget = widget();
 
-    RimViewWindow* viewWindow = RiuInterfaceToViewWindow::viewWindowFromWidget(mainWidget);
-    if (viewWindow)
-    {
-        viewWindow->setMdiWindowGeometry(windowGeometry());
-    }
-    else
+	RimViewWindow* viewWindow = RiuInterfaceToViewWindow::viewWindowFromWidget(mainWidget);
+    if (!viewWindow)
     {
         RiuViewer* viewer = mainWidget->findChild<RiuViewer*>();
         if (viewer)
         {
-            viewer->ownerReservoirView()->setMdiWindowGeometry(windowGeometry());
+            viewWindow = viewer->ownerViewWindow();
         }
     }
 
-    RiuMainWindowBase* windowToTile = nullptr;
-    if (window() == RiaApplication::instance()->mainWindow())
+    if (viewWindow)
     {
-        if (RiaApplication::instance()->mainWindow()->subWindowsAreTiled())
-        {
-            windowToTile = RiaApplication::instance()->mainWindow();
-        }
+        viewWindow->setMdiWindowGeometry(windowGeometry());
+        viewWindow->handleMdiWindowClosed();
+        event->accept();
     }
-    else if (window() == RiaApplication::instance()->mainPlotWindow())
+    else
     {
-        if (RiaApplication::instance()->mainPlotWindow()->subWindowsAreTiled())
-        {
-            windowToTile = RiaApplication::instance()->mainPlotWindow();
-        }
-    }
-
-    QMdiSubWindow::closeEvent(event);
-
-    if(windowToTile)
-    {
-        windowToTile->tileSubWindows();
+        QMdiSubWindow::closeEvent(event);
     }
 }
 
@@ -148,13 +133,13 @@ void RiuMdiSubWindow::resizeEvent(QResizeEvent* resizeEvent)
 
     if (!m_blockTilingChanges)
     {
-        if (window() == RiaApplication::instance()->mainWindow())
+        if (window() == RiaGuiApplication::instance()->mainWindow())
         {
-            RiaApplication::instance()->mainWindow()->storeSubWindowTiling(false);
+            RiaGuiApplication::instance()->mainWindow()->storeSubWindowTiling(false);
         }
-        else if (window() == RiaApplication::instance()->mainPlotWindow())
+        else if (window() == RiaGuiApplication::instance()->mainPlotWindow())
         {
-            RiaApplication::instance()->mainPlotWindow()->storeSubWindowTiling(false);
+            RiaGuiApplication::instance()->mainPlotWindow()->storeSubWindowTiling(false);
         }
     }
 
@@ -173,13 +158,13 @@ void RiuMdiSubWindow::moveEvent(QMoveEvent* moveEvent)
     
     if (!m_blockTilingChanges)
     {
-        if (window() == RiaApplication::instance()->mainWindow())
+        if (window() == RiaGuiApplication::instance()->mainWindow())
         {
-            RiaApplication::instance()->mainWindow()->storeSubWindowTiling(false);
+            RiaGuiApplication::instance()->mainWindow()->storeSubWindowTiling(false);
         }
-        else if (window() == RiaApplication::instance()->mainPlotWindow())
+        else if (window() == RiaGuiApplication::instance()->mainPlotWindow())
         {
-            RiaApplication::instance()->mainPlotWindow()->storeSubWindowTiling(false);
+            RiaGuiApplication::instance()->mainPlotWindow()->storeSubWindowTiling(false);
         }
     }
 

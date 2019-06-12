@@ -24,8 +24,8 @@
 #include "RiuDockWidgetTools.h"
 #include "RiuMdiSubWindow.h"
 
-#include "RimViewWindow.h"
 #include "RimProject.h"
+#include "RimViewWindow.h"
 
 #include "cafPdmObject.h"
 #include "cafPdmUiTreeView.h"
@@ -83,6 +83,18 @@ void RiuMainWindowBase::loadWinGeoAndDockToolBarLayout()
             }
         }
     }
+
+    restoreDockWidgetVisibilities();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+QString mainWindowDockWidgetSettingsKey(const QString& settingsFolderName)
+{
+    QString key = settingsFolderName + "/dockWindowVisibilies";
+
+    return key;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -100,6 +112,44 @@ void RiuMainWindowBase::saveWinGeoAndDockToolBarLayout()
     settings.setValue(QString("%1/dockAndToolBarLayout").arg(registryFolderName()), layout);
 
     settings.setValue(QString("%1/isMaximized").arg(registryFolderName()), isMaximized());
+
+    if (this->isVisible())
+    {
+        QVariant dockWindowVisibilities = RiuDockWidgetTools::dockWidgetsVisibility(this);
+        QString  key                    = mainWindowDockWidgetSettingsKey(registryFolderName());
+
+        settings.setValue(key, dockWindowVisibilities);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuMainWindowBase::storeDefaultDockWidgetVisibilitiesIfRequired()
+{
+    QSettings settings;
+
+    QString key = mainWindowDockWidgetSettingsKey(registryFolderName());
+
+    if (!settings.contains(key))
+    {
+        QVariant dockWidgetVisibilities = RiuDockWidgetTools::defaultDockWidgetVisibilities();
+        settings.setValue(key, dockWidgetVisibilities);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuMainWindowBase::restoreDockWidgetVisibilities()
+{
+    // Company and appname set through QCoreApplication
+    QSettings settings;
+
+    QString key = mainWindowDockWidgetSettingsKey(registryFolderName());
+
+    QVariant dockWindowVisibilities = settings.value(key);
+    RiuDockWidgetTools::applyDockWidgetVisibilities(this, dockWindowVisibilities.toMap());
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -116,6 +166,22 @@ void RiuMainWindowBase::showWindow()
     if (isMax.toBool())
     {
         showMaximized();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuMainWindowBase::hideAllDockWidgets()
+{
+    QList<QDockWidget*> dockWidgets = findChildren<QDockWidget*>();
+
+    for (QDockWidget* dock : dockWidgets)
+    {
+        if (dock)
+        {
+            dock->hide();
+        }
     }
 }
 
@@ -166,6 +232,44 @@ bool RiuMainWindowBase::blockSlotSubWindowActivated() const
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+void RiuMainWindowBase::removeViewerFromMdiArea(QMdiArea* mdiArea, QWidget* viewer)
+{
+    bool wasMaximized = viewer && viewer->isMaximized();
+
+    QMdiSubWindow* subWindowBeingClosed      = findMdiSubWindow(viewer);
+    bool           removedSubWindowWasActive = false;
+    if (subWindowBeingClosed->isActiveWindow())
+    {
+        // If we are removing the active window, we will need a new active window
+        // Start by making the window inactive so Qt doesn't pick the active window itself
+        mdiArea->setActiveSubWindow(nullptr);
+        removedSubWindowWasActive = true;
+    }
+    mdiArea->removeSubWindow(subWindowBeingClosed);
+
+    QList<QMdiSubWindow*> subWindowList = mdiArea->subWindowList(QMdiArea::ActivationHistoryOrder);
+    if (!subWindowList.empty())
+    {
+        if (removedSubWindowWasActive)
+        {
+            mdiArea->setActiveSubWindow(nullptr);
+            // Make the last activated window the current activated one
+            mdiArea->setActiveSubWindow(subWindowList.back());
+        }
+        if (wasMaximized && mdiArea->currentSubWindow())
+        {
+            mdiArea->currentSubWindow()->showMaximized();
+        }
+        else if (subWindowsAreTiled())
+        {
+            tileSubWindows();
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 void RiuMainWindowBase::setExpanded(const caf::PdmUiItem* uiItem, bool expanded)
 {
     m_projectTreeView->setExpanded(uiItem, expanded);
@@ -187,8 +291,6 @@ void RiuMainWindowBase::slotDockWidgetToggleViewActionTriggered()
             // Raise the dock widget to make it visible if the widget is part of a tab widget
             dockWidget->raise();
         }
-
-        RiuDockWidgetTools::instance()->setDockWidgetVisibility(dockWidget->objectName(), dockWidget->isVisible());
     }
 }
 
@@ -200,7 +302,8 @@ void RiuMainWindowBase::addViewerToMdiArea(QMdiArea*     mdiArea,
                                            const QPoint& subWindowPos,
                                            const QSize&  subWindowSize)
 {
-    RiuMdiSubWindow* subWin = new RiuMdiSubWindow(nullptr, Qt::CustomizeWindowHint | Qt::WindowCloseButtonHint | Qt::WindowMaximizeButtonHint);
+    RiuMdiSubWindow* subWin =
+        new RiuMdiSubWindow(nullptr, Qt::CustomizeWindowHint | Qt::WindowCloseButtonHint | Qt::WindowMaximizeButtonHint);
     subWin->setAttribute(Qt::WA_DeleteOnClose); // Make sure the contained widget is destroyed when the MDI window is closed
     subWin->setWidget(viewer);
 

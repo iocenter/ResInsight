@@ -18,7 +18,7 @@
 
 #include "RicEditPreferencesFeature.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaPreferences.h"
 
 #include "RiuPropertyViewTabWidget.h"
@@ -44,7 +44,7 @@ void RicEditPreferencesFeature::onActionTriggered(bool isChecked)
 {
     this->disableModelChangeContribution();
 
-    RiaApplication* app = RiaApplication::instance();
+    RiaGuiApplication* app = RiaGuiApplication::instance();
 
     QStringList tabNames = app->preferences()->tabNames();
 
@@ -57,11 +57,14 @@ void RicEditPreferencesFeature::onActionTriggered(bool isChecked)
         // Write preferences using QSettings  and apply them to the application
         caf::PdmSettings::writeFieldsToApplicationStore(app->preferences());
         app->applyPreferences(oldPreferences.get());
+        app->applyGuiPreferences(oldPreferences.get());
+        app->updateGrpcServer();
     }
     else
     {
         // Read back currently stored values using QSettings
         caf::PdmSettings::readFieldsFromApplicationStore(app->preferences());
+        app->preferences()->initAfterReadRecursively();
     }
 }
 

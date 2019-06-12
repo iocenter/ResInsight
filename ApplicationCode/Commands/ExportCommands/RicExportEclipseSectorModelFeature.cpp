@@ -28,11 +28,13 @@
 #include "RifReaderEclipseOutput.h"
 
 #include "Rim3dView.h"
+#include "RimDialogData.h"
 #include "RimEclipseCase.h"
 #include "RimEclipseCellColors.h"
 #include "RimEclipseView.h"
 #include "RimFaultInView.h"
 #include "RimFaultInViewCollection.h"
+#include "RimProject.h"
 
 #include "RigEclipseCaseData.h"
 #include "RigMainGrid.h"
@@ -40,6 +42,7 @@
 #include "Riu3DMainWindowTools.h"
 #include "RiuPropertyViewTabWidget.h"
 
+#include "cafPdmSettings.h"
 #include "cafPdmUiPropertyViewDialog.h"
 #include "cafProgressInfo.h"
 #include "cafSelectionManager.h"
@@ -65,14 +68,19 @@ void RicExportEclipseSectorModelFeature::openDialogAndExecuteCommand(RimEclipseV
     cvf::Vec3i min, max;
     std::tie(min, max) = getVisibleCellRange(view, cellVisibility);
 
-    RicExportEclipseSectorModelUi exportSettings(caseData, min, max);
-    RiuPropertyViewTabWidget      propertyDialog(Riu3DMainWindowTools::mainWindowWidget(), &exportSettings, "Export Eclipse Sector Model", exportSettings.tabNames());
+    RicExportEclipseSectorModelUi* exportSettings = RiaApplication::instance()->project()->dialogData()->exportSectorModelUi();
+    exportSettings->setCaseData(caseData, min, max);
+
+    exportSettings->applyBoundaryDefaults();
+    exportSettings->removeInvalidKeywords();
+
+    RiuPropertyViewTabWidget propertyDialog(Riu3DMainWindowTools::mainWindowWidget(), exportSettings, "Export Eclipse Sector Model", exportSettings->tabNames());
 
     RicExportFeatureImpl::configureForExport(propertyDialog.dialogButtonBox());
 
     if (propertyDialog.exec() == QDialog::Accepted)
     {
-        executeCommand(view, exportSettings, "ExportInputGrid");
+        executeCommand(view, *exportSettings, "ExportInputGrid");
     }
 }
 

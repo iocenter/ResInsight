@@ -21,8 +21,8 @@
 #include "RiaFilePathTools.h"
 #include "RiaViewRedrawScheduler.h"
 
-#include "ExportCommands/RicExportEclipseSectorModelFeature.h"
-#include "ExportCommands/RicExportEclipseSectorModelUi.h"
+#include "ExportCommands/RicSaveEclipseInputVisibleCellsFeature.h"
+#include "ExportCommands/RicSaveEclipseInputVisibleCellsUi.h"
 #include "RicfApplicationTools.h"
 #include "RicfCommandFileExecutor.h"
 
@@ -75,19 +75,21 @@ RicfExportVisibleCells::RicfExportVisibleCells()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RicfExportVisibleCells::execute()
+RicfCommandResponse RicfExportVisibleCells::execute()
 {
     if (m_caseId < 0 || m_viewName().isEmpty())
     {
-        RiaLogging::error("exportVisibleCells: CaseId or view name not specified");
-        return;
+        QString error("exportVisibleCells: CaseId or view name not specified");
+        RiaLogging::error(error);
+        return RicfCommandResponse(RicfCommandResponse::COMMAND_ERROR, error);
     }
 
     auto eclipseView = RicfApplicationTools::viewFromCaseIdAndViewName(m_caseId, m_viewName);
     if (!eclipseView)
     {
-        RiaLogging::error(QString("exportVisibleCells: Could not find view '%1' in case ID %2").arg(m_viewName).arg(m_caseId));
-        return;
+        QString error(QString("exportVisibleCells: Could not find view '%1' in case ID %2").arg(m_viewName).arg(m_caseId));
+        RiaLogging::error(error);
+        return RicfCommandResponse(RicfCommandResponse::COMMAND_ERROR, error);
     }
 
     QString exportFolder = RicfCommandFileExecutor::instance()->getExportPath(RicfCommandFileExecutor::CELLS);
@@ -98,32 +100,27 @@ void RicfExportVisibleCells::execute()
 
     RiaViewRedrawScheduler::instance()->clearViewsScheduledForUpdate();
 
-    cvf::UByteArray cellVisibility;
-    eclipseView->calculateCurrentTotalCellVisibility(&cellVisibility, eclipseView->currentTimeStep());
-
-    cvf::Vec3i min, max;
-    std::tie(min, max) = RicExportEclipseSectorModelFeature::getVisibleCellRange(eclipseView, cellVisibility);
-
-    RicExportEclipseSectorModelUi exportSettings(eclipseView->eclipseCase()->eclipseCaseData(), min, max);
+    RicSaveEclipseInputVisibleCellsUi exportSettings;
     buildExportSettings(exportFolder, &exportSettings);
-    RicExportEclipseSectorModelFeature::executeCommand(eclipseView, exportSettings, "exportVisibleCells");
+    RicSaveEclipseInputVisibleCellsFeature::executeCommand(eclipseView, exportSettings, "exportVisibleCells");
+
+    return RicfCommandResponse();
 }
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RicfExportVisibleCells::buildExportSettings(const QString& exportFolder, RicExportEclipseSectorModelUi* exportSettings)
+void RicfExportVisibleCells::buildExportSettings(const QString& exportFolder, RicSaveEclipseInputVisibleCellsUi* exportSettings)
 {
     QDir baseDir(exportFolder);
-    exportSettings->exportParametersFilename = baseDir.absoluteFilePath(QString("%1.grdecl").arg(m_exportKeyword().text()));
+    exportSettings->exportFilename = baseDir.absoluteFilePath(QString("%1.grdecl").arg(m_exportKeyword().text()));
 
-/*
-if (m_exportKeyword == ExportKeyword::FLUXNUM)
+    if (m_exportKeyword == ExportKeyword::FLUXNUM)
         exportSettings->exportKeyword = RicSaveEclipseInputVisibleCellsUi::FLUXNUM;
     else if (m_exportKeyword == ExportKeyword::MULTNUM)
         exportSettings->exportKeyword = RicSaveEclipseInputVisibleCellsUi::MULTNUM;
 
     exportSettings->visibleActiveCellsValue = m_visibleActiveCellsValue;
     exportSettings->hiddenActiveCellsValue  = m_hiddenActiveCellsValue;
-    exportSettings->inactiveCellsValue      = m_inactiveCellsValue; */
+    exportSettings->inactiveCellsValue      = m_inactiveCellsValue;
 }

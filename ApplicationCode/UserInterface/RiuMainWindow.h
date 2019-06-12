@@ -99,9 +99,6 @@ public:
 
     RiuProcessMonitor* processMonitor();
 
-    void            hideAllDockWindows();
-
-
     void            selectedCases(std::vector<RimCase*>& cases);
 
     void            setDefaultWindowSize();
@@ -128,6 +125,7 @@ public:
 
     void            showProcessMonitorDockPanel();
     void            setDefaultToolbarVisibility();
+    void            applyFontSizesToDockedPlots();
 
 protected:
     void    closeEvent(QCloseEvent* event) override;
@@ -139,8 +137,6 @@ private:
     void            createDockPanels();
 
     void            restoreTreeViewState();
-
-    void            showDockPanel(const QString& dockPanelName);
 
     void            updateUiFieldsFromActiveResult(caf::PdmObjectHandle* objectToUpdate);
 

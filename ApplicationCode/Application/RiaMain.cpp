@@ -16,30 +16,78 @@
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-#include "RiaApplication.h"
+#include "RiaArgumentParser.h"
+#include "RiaConsoleApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaLogging.h"
+
+#include "cvfProgramOptions.h"
+#include "cvfqtUtils.h"
+
+RiaApplication* createApplication(int &argc, char *argv[])
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        if (!qstrcmp(argv[i], "--console") || !qstrcmp(argv[i], "--unittest"))
+        {
+            return new RiaConsoleApplication(argc, argv);
+        }
+    }
+    return new RiaGuiApplication(argc, argv);
+}
 
 int main(int argc, char *argv[])
 {
     RiaLogging::loggerInstance()->setLevel(RI_LL_DEBUG);
 
-    RiaApplication app(argc, argv);
+    std::unique_ptr<RiaApplication> app (createApplication(argc, argv));
 
+    cvf::ProgramOptions progOpt;
+    bool                result = RiaArgumentParser::parseArguments(&progOpt);
+
+    app->initialize();
+
+    if (!result)
+    {
+        std::vector<cvf::String> unknownOptions = progOpt.unknownOptions();
+        QStringList unknownOptionsText;
+        for (cvf::String option : unknownOptions)
+        {
+            unknownOptionsText += QString("Unknown option: %1").arg(cvfqt::Utils::toQString(option));
+        }
+
+        const cvf::String usageText = progOpt.usageText(110, 30);
+        app->showErrorMessage(RiaApplication::commandLineParameterHelp() +
+                              cvfqt::Utils::toQString(usageText) +
+                              unknownOptionsText.join("\n"));
+        if (dynamic_cast<RiaGuiApplication*>(app.get()) == nullptr)
+        {
+            return 1;
+        }
+    }
+  
     QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
     setlocale(LC_NUMERIC,"C");
 
-    int unitTestResult = app.parseArgumentsAndRunUnitTestsIfRequested();
-    if (unitTestResult > -1)
+    RiaApplication::ApplicationStatus status = app->handleArguments(&progOpt);
+    if (status == RiaApplication::EXIT_COMPLETED)
     {
-        return unitTestResult;
+        return 0;
     }
-     
-    if (app.parseArguments())
+    else if (status == RiaApplication::EXIT_WITH_ERROR)
+    {
+        return 2;
+    }
+    else if (status == RiaApplication::KEEP_GOING)
     {
         int exitCode = 0;
         try
         {
-            exitCode = app.exec();
+            if (app->initializeGrpcServer(progOpt))
+            {
+                app->launchGrpcServer();
+            }
+            exitCode = QCoreApplication::instance()->exec();
         }
         catch (std::exception& exep )
         {
@@ -55,6 +103,7 @@ int main(int argc, char *argv[])
         return exitCode;
     }
 
-    return 0;
+    CVF_ASSERT(false && "Unknown ApplicationStatus");
+    return -1;
 }
 

@@ -123,7 +123,6 @@ public:
 
     cvf::ScalarMapper*                          scalarMapper() { return m_currentScalarMapper.p(); }
     bool                                        showLegend() const;
-    void                                        setShowLegend(bool show);
 
     const caf::TitledOverlayFrame*              titledOverlayFrame() const override;
     caf::TitledOverlayFrame*                    titledOverlayFrame() override;
@@ -146,6 +145,9 @@ private:
     friend class RimViewLinker;
     
     static cvf::Color3ubArray                   colorArrayFromColorType(ColorRangesType colorType);
+
+    caf::OverlayScalarMapperLegend*             getOrCreateScalarMapperLegend();
+    caf::CategoryLegend*                        getOrCreateCategoryLegend();
 
 private:
     cvf::ref<cvf::ScalarMapperDiscreteLinear>   m_linDiscreteScalarMapper;

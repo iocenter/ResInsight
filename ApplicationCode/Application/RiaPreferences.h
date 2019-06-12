@@ -22,6 +22,7 @@
 #pragma once
 
 #include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaDefines.h"
 #include "RiaFontCache.h"
 
@@ -60,13 +61,15 @@ public:
     bool showTestToolbar() const;
     bool includeFractureDebugInfoFile() const;
     bool showProjectChangedDialog() const;
-    bool showOctaveCommunicationWarning() const;
     QString holoLensExportFolder() const;
 
     std::map<RiaDefines::FontSettingType, RiaFontCache::FontSize> defaultFontSizes() const;
 
 public: // Pdm Fields
-    caf::PdmField<caf::AppEnum< RiaApplication::RINavigationPolicy > > navigationPolicy;
+    caf::PdmField<caf::AppEnum< RiaGuiApplication::RINavigationPolicy > > navigationPolicy;
+
+    caf::PdmField<bool>     enableGrpcServer;
+    caf::PdmField<int>      defaultGrpcPortNumber;
 
     caf::PdmField<QString>  scriptDirectories;
     caf::PdmField<QString>  scriptEditorExecutable;
@@ -110,6 +113,7 @@ protected:
     void                            defineEditorAttribute(const caf::PdmFieldHandle* field, QString uiConfigName, caf::PdmUiEditorAttribute* attribute) override;
     void                            defineUiOrdering(QString uiConfigName, caf::PdmUiOrdering& uiOrdering) override;
     QList<caf::PdmOptionItemInfo>   calculateValueOptions(const caf::PdmFieldHandle* fieldNeedingOptions, bool * useOptionsOnly) override;
+    void                            initAfterRead() override;
 
 private:
     caf::PdmChildField<RifReaderSettings*> m_readerSettings;
@@ -117,7 +121,6 @@ private:
     caf::PdmField<bool>                    m_appendFieldKeywordToToolTipText;
 
     caf::PdmField<bool>                    m_showProjectChangedDialog;
-    caf::PdmField<bool>                    m_showOctaveWarningForMultipleInstances;
 
     caf::PdmField<bool>                    m_showTestToolbar;
     caf::PdmField<bool>                    m_includeFractureDebugInfoFile;

@@ -287,7 +287,6 @@ void RimWellLogExtractionCurve::fieldChangedByUi(const caf::PdmFieldHandle* chan
         this->loadDataAndUpdate(true);
     }
     else if (changedField == &m_branchDetection ||
-             changedField == &m_branchIndex ||
              changedField == &m_branchIndex)
     {
         clearGeneratedSimWellPaths();
@@ -583,7 +582,7 @@ QList<caf::PdmOptionItemInfo> RimWellLogExtractionCurve::calculateValueOptions(c
     {
         std::set<QString> sortedWellNames = this->sortedSimWellNames();
 
-        QIcon simWellIcon(":/Well.png");
+        caf::QIconProvider simWellIcon(":/Well.png");
         for ( const QString& wname: sortedWellNames )
         {
             options.push_back(caf::PdmOptionItemInfo(wname, wname, false, simWellIcon));

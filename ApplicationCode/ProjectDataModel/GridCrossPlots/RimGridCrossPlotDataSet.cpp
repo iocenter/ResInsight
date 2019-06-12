@@ -73,7 +73,7 @@ void RimGridCrossPlotDataSet::CurveGroupingEnum::setUp()
     addItem(RigGridCrossPlotCurveGrouping::GROUP_BY_TIME, "TIME", "Time Step");
     addItem(RigGridCrossPlotCurveGrouping::GROUP_BY_FORMATION, "FORMATION", "Formations");
     addItem(RigGridCrossPlotCurveGrouping::GROUP_BY_RESULT, "RESULT", "Result Property");
-    setDefault(RigGridCrossPlotCurveGrouping::GROUP_BY_TIME);
+    setDefault(RigGridCrossPlotCurveGrouping::NO_GROUPING);
 }
 } // namespace caf
 
@@ -153,6 +153,11 @@ void RimGridCrossPlotDataSet::setCellFilterView(RimGridView* cellFilterView)
             m_yAxisProperty->setResultVariable("DEPTH");
             m_timeStep = eclipseView->currentTimeStep();
             m_grouping = NO_GROUPING;
+            if (eclipseView->eclipseCase() && eclipseView->eclipseCase()->activeFormationNames())
+            {
+                m_grouping = GROUP_BY_FORMATION;
+                m_groupingProperty->legendConfig()->setColorRange(RimRegularLegendConfig::CATEGORY);
+            }
 
             RimGridCrossPlot* parentPlot = nullptr;
             firstAncestorOrThisOfType(parentPlot);
@@ -387,19 +392,6 @@ QString RimGridCrossPlotDataSet::timeStepString() const
         }
     }
     return "";
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-std::vector<QString> RimGridCrossPlotDataSet::groupStrings() const
-{
-    std::vector<QString> groupStrings;
-    for (auto curve : m_crossPlotCurves())
-    {
-        groupStrings.push_back(legendConfig()->categoryNameFromCategoryValue(curve->groupIndex()));
-    }
-    return groupStrings;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -787,7 +779,7 @@ void RimGridCrossPlotDataSet::defineUiOrdering(QString uiConfigName, caf::PdmUiO
         if (m_grouping() == GROUP_BY_RESULT)
         {
             caf::PdmUiGroup* dataGroupingGroup = uiOrdering.addNewGroup("Data Grouping Property");
-            m_groupingProperty->uiOrdering(uiConfigName, *dataGroupingGroup);
+            m_groupingProperty->uiOrdering("AddLegendLevels", *dataGroupingGroup);
         }
 
         caf::PdmUiGroup* invisibleFullWidthGroup = uiOrdering.addNewGroup("Property Group");
@@ -882,6 +874,23 @@ void RimGridCrossPlotDataSet::fieldChangedByUi(const caf::PdmFieldHandle* change
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+void RimGridCrossPlotDataSet::childFieldChangedByUi(const caf::PdmFieldHandle* changedChildField)
+{
+    if (changedChildField == &m_yAxisProperty)
+    {
+        if (m_yAxisProperty->resultVariable() == "DEPTH")
+        {
+            RimGridCrossPlot* plot;
+            this->firstAncestorOrThisOfTypeAsserted(plot);
+            plot->setYAxisInverted(true);
+            triggerPlotNameUpdateAndReplot();
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 QList<caf::PdmOptionItemInfo> RimGridCrossPlotDataSet::calculateValueOptions(const caf::PdmFieldHandle* fieldNeedingOptions,
                                                                               bool*                      useOptionsOnly)
 {
@@ -918,7 +927,7 @@ QList<caf::PdmOptionItemInfo> RimGridCrossPlotDataSet::calculateValueOptions(con
             for (RimEclipseView* view : eclipseCase->reservoirViews.childObjects())
             {
                 CVF_ASSERT(view && "Really always should have a valid view pointer in ReservoirViews");
-                options.push_back(caf::PdmOptionItemInfo(view->name(), view, false, view->uiIcon()));
+                options.push_back(caf::PdmOptionItemInfo(view->name(), view, false, view->uiIconProvider()));
             }
         }
     }
@@ -970,7 +979,7 @@ void RimGridCrossPlotDataSet::updateLegendRange()
                         const std::vector<QString>& categoryNames = formationNames->formationNames();
                         if (!categoryNames.empty())
                         {
-                            legendConfig()->setNamedCategories(categoryNames);
+                            legendConfig()->setNamedCategoriesInverse(categoryNames);
                             legendConfig()->setAutomaticRanges(0, categoryNames.size() - 1, 0, categoryNames.size() - 1);
                         }
                     }
@@ -1075,10 +1084,13 @@ void RimGridCrossPlotDataSet::exportFormattedData(RifEclipseDataTableFormatter& 
 {
     if (m_groupedResults.empty()) return;
 
+    QString xTitle = QString("%1").arg(m_xAxisProperty->resultVariableUiShortName());
+    QString yTitle = QString("%1").arg(m_yAxisProperty->resultVariableUiShortName());
+
     if (m_grouping != NO_GROUPING)
     {
-        std::vector<RifEclipseOutputTableColumn> header = {RifEclipseOutputTableColumn("X"),
-                                                           RifEclipseOutputTableColumn("Y"),
+        std::vector<RifEclipseOutputTableColumn> header = {RifEclipseOutputTableColumn(xTitle),
+                                                           RifEclipseOutputTableColumn(yTitle),
                                                            RifEclipseOutputTableColumn("Group Index"),
                                                            RifEclipseOutputTableColumn("Group Description")};
 
@@ -1086,7 +1098,7 @@ void RimGridCrossPlotDataSet::exportFormattedData(RifEclipseDataTableFormatter& 
     }
     else
     {
-        std::vector<RifEclipseOutputTableColumn> header = {RifEclipseOutputTableColumn("X"), RifEclipseOutputTableColumn("Y")};
+        std::vector<RifEclipseOutputTableColumn> header = {RifEclipseOutputTableColumn(xTitle), RifEclipseOutputTableColumn(yTitle)};
         formatter.header(header);
     }
 
@@ -1265,6 +1277,13 @@ void RimGridCrossPlotDataSet::setDefaults()
 
             m_yAxisProperty->setResultType(RiaDefines::STATIC_NATIVE);
             m_yAxisProperty->setResultVariable("PERMX");
+
+            m_grouping = NO_GROUPING;
+            if (eclipseCase->activeFormationNames())
+            {
+                m_grouping = GROUP_BY_FORMATION;
+                m_groupingProperty->legendConfig()->setColorRange(RimRegularLegendConfig::CATEGORY);
+            }
         }
     }
 }

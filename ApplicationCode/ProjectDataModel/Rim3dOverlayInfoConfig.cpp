@@ -116,7 +116,6 @@ Rim3dOverlayInfoConfig::Rim3dOverlayInfoConfig()
 
     m_isVisCellStatUpToDate = false;
 
-    m_gridStatisticsDialog = std::unique_ptr<RicGridStatisticsDialog>(new RicGridStatisticsDialog(nullptr));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -231,11 +230,24 @@ QString Rim3dOverlayInfoConfig::resultInfoText(const HistogramData& histData)
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+RicGridStatisticsDialog* Rim3dOverlayInfoConfig::getOrCreateGridStatisticsDialog()
+{
+    if (!m_gridStatisticsDialog)
+    {
+        m_gridStatisticsDialog.reset(new RicGridStatisticsDialog(nullptr));
+    }
+    CVF_ASSERT(m_gridStatisticsDialog);
+    return m_gridStatisticsDialog.get();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 QImage Rim3dOverlayInfoConfig::statisticsDialogScreenShotImage()
 {
-    if (m_gridStatisticsDialog->isVisible())
+    if (getOrCreateGridStatisticsDialog()->isVisible())
     {
-        return m_gridStatisticsDialog->screenShotImage();
+        return getOrCreateGridStatisticsDialog()->screenShotImage();
     }
     return QImage();
 }
@@ -270,14 +282,6 @@ bool Rim3dOverlayInfoConfig::showResultInfo() const
 bool Rim3dOverlayInfoConfig::isActive() const
 {
     return m_active;
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-void Rim3dOverlayInfoConfig::setIsActive(bool active)
-{
-    m_active = active;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -532,7 +536,7 @@ QString Rim3dOverlayInfoConfig::caseInfoText(RimEclipseView* eclipseView)
 {
     QString infoText;
 
-    if (eclipseView)
+    if (eclipseView && eclipseView->eclipseCase())
     {
         QString caseName = eclipseView->eclipseCase()->caseUserDescription();
 
@@ -668,7 +672,7 @@ QString Rim3dOverlayInfoConfig::resultInfoText(const HistogramData& histData,
                                 "</table>")
                             .arg(histData.min)
                             .arg(histData.mean)
-                            .arg(histData.max);                            
+                            .arg(histData.max);
         }
     }
     else if (eclipseView)
@@ -699,7 +703,8 @@ QString Rim3dOverlayInfoConfig::resultInfoText(const HistogramData& histData,
 
             if (eclipseView->cellResult()->hasDualPorFractureResult())
             {
-                QString porosityModelText = caf::AppEnum<RiaDefines::PorosityModelType>::uiText(eclipseView->cellResult()->porosityModel());
+                QString porosityModelText =
+                    caf::AppEnum<RiaDefines::PorosityModelType>::uiText(eclipseView->cellResult()->porosityModel());
 
                 infoText += QString("<b>Dual Porosity Type:</b> %1<br>").arg(porosityModelText);
             }
@@ -869,16 +874,17 @@ void Rim3dOverlayInfoConfig::showStatisticsInfoDialog(bool raise)
 {
     if (m_viewDef)
     {
+        RicGridStatisticsDialog* dialog = getOrCreateGridStatisticsDialog();
         // Show dialog before setting data due to text edit auto height setting
-        m_gridStatisticsDialog->resize(600, 800);
-        m_gridStatisticsDialog->show();
+        dialog->resize(600, 800);
+        dialog->show();
 
-        m_gridStatisticsDialog->setLabel("Grid statistics");
-        m_gridStatisticsDialog->updateFromRimView(m_viewDef);
+        dialog->setLabel("Grid statistics");
+        dialog->updateFromRimView(m_viewDef);
 
         if (raise)
         {
-            m_gridStatisticsDialog->raise();
+            dialog->raise();
         }
     }
 }
@@ -923,7 +929,7 @@ void Rim3dOverlayInfoConfig::update3DInfo()
         updateEclipse3DInfo(reservoirView);
 
         // Update statistics dialog
-        m_gridStatisticsDialog->updateFromRimView(reservoirView);
+        getOrCreateGridStatisticsDialog()->updateFromRimView(reservoirView);
     }
 
     RimGeoMechView* geoMechView = dynamic_cast<RimGeoMechView*>(m_viewDef.p());
@@ -934,7 +940,7 @@ void Rim3dOverlayInfoConfig::update3DInfo()
         updateGeoMech3DInfo(geoMechView);
 
         // Update statistics dialog
-        m_gridStatisticsDialog->updateFromRimView(geoMechView);
+        getOrCreateGridStatisticsDialog()->updateFromRimView(geoMechView);
     }
 
     update3DInfoIn2dViews();
@@ -1112,18 +1118,22 @@ void Rim3dOverlayInfoConfig::update3DInfoIn2dViews() const
 //--------------------------------------------------------------------------------------------------
 QString Rim3dOverlayInfoConfig::timeStepText(RimEclipseView* eclipseView)
 {
-    int                    currTimeStepIndex = eclipseView->currentTimeStep();
-    std::vector<QDateTime> timeSteps         = eclipseView->currentGridCellResults()->allTimeStepDatesFromEclipseReader();
-
     QString dateTimeString;
-    if (currTimeStepIndex >= 0 && currTimeStepIndex < (int)timeSteps.size())
+
+    if (eclipseView && eclipseView->currentGridCellResults())
     {
-        QString dateFormat = RiaQDateTimeTools::createTimeFormatStringFromDates(timeSteps);
+        int                    currTimeStepIndex = eclipseView->currentTimeStep();
+        std::vector<QDateTime> timeSteps         = eclipseView->currentGridCellResults()->allTimeStepDatesFromEclipseReader();
 
-        QString dateString = RiaQDateTimeTools::toStringUsingApplicationLocale(timeSteps[currTimeStepIndex], dateFormat);
+        if (currTimeStepIndex >= 0 && currTimeStepIndex < (int)timeSteps.size())
+        {
+            QString dateFormat = RiaQDateTimeTools::createTimeFormatStringFromDates(timeSteps);
 
-        dateTimeString = QString("Time Step: %1/%2  %3")
-                             .arg(QString::number(currTimeStepIndex), QString::number(timeSteps.size() - 1), dateString);
+            QString dateString = RiaQDateTimeTools::toStringUsingApplicationLocale(timeSteps[currTimeStepIndex], dateFormat);
+
+            dateTimeString = QString("Time Step: %1/%2  %3")
+                                 .arg(QString::number(currTimeStepIndex), QString::number(timeSteps.size() - 1), dateString);
+        }
     }
 
     return QString("<p><b><center>-- %1 --</center></b>").arg(dateTimeString) +

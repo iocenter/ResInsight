@@ -240,7 +240,7 @@ void RimWellLogTrack::simWellOptionItems(QList<caf::PdmOptionItemInfo>* options,
         sortedWellNames = eclipseCase->eclipseCaseData()->findSortedWellNames();
     }
 
-    QIcon simWellIcon(":/Well.png");
+    caf::QIconProvider simWellIcon(":/Well.png");
     for (const QString& wname : sortedWellNames)
     {
         options->push_back(caf::PdmOptionItemInfo(wname, wname, false, simWellIcon));
@@ -1508,9 +1508,13 @@ void RimWellLogTrack::uiOrderingForXAxisSettings(caf::PdmUiOrdering& uiOrdering)
     gridGroup->add(&m_visibleXRangeMin);
     gridGroup->add(&m_visibleXRangeMax);
     gridGroup->add(&m_xAxisGridVisibility);
-    gridGroup->add(&m_explicitTickIntervals);
-    gridGroup->add(&m_majorTickInterval);
-    gridGroup->add(&m_minorTickInterval);
+
+    // TODO Revisit if these settings are required 
+    // See issue https://github.com/OPM/ResInsight/issues/4367
+    //     gridGroup->add(&m_explicitTickIntervals);
+    //     gridGroup->add(&m_majorTickInterval);
+    //     gridGroup->add(&m_minorTickInterval);
+
 }
 
 //--------------------------------------------------------------------------------------------------

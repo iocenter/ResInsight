@@ -18,7 +18,7 @@
 
 #include "RiaRegressionTestRunner.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaGitDiff.h"
 #include "RiaImageCompareReporter.h"
 #include "RiaImageFileCompare.h"
@@ -83,6 +83,7 @@ void logInfoTextWithTimeInSeconds(const QTime& time, const QString& msg)
 //--------------------------------------------------------------------------------------------------
 RiaRegressionTestRunner::RiaRegressionTestRunner()
     : m_runningRegressionTests(false)
+    , m_appendAllTestsAfterLastItemInFilter(false)
 {
 }
 
@@ -503,7 +504,7 @@ void RiaRegressionTestRunner::resizeMaximizedPlotWindows()
     RimProject* proj = RiaApplication::instance()->project();
     if (!proj) return;
 
-    RiuPlotMainWindow* plotMainWindow = RiaApplication::instance()->mainPlotWindow();
+    RiuPlotMainWindow* plotMainWindow = RiaGuiApplication::instance()->mainPlotWindow();
     if (!plotMainWindow) return;
 
     std::vector<RimViewWindow*> viewWindows;
@@ -589,6 +590,8 @@ QFileInfoList RiaRegressionTestRunner::subDirectoriesForTestExecution(const QDir
         return folderList;
     }
 
+    bool anyMatchFound = false;
+
     QFileInfoList foldersMatchingTestFilter;
 
     QFileInfoList folderList = directory.entryInfoList();
@@ -600,9 +603,11 @@ QFileInfoList RiaRegressionTestRunner::subDirectoriesForTestExecution(const QDir
         for (const auto& s : m_testFilter)
         {
             QString trimmed = s.trimmed();
-            if (baseName.contains(trimmed, Qt::CaseInsensitive))
+            if ((m_appendAllTestsAfterLastItemInFilter && anyMatchFound) ||
+                baseName.contains(trimmed, Qt::CaseInsensitive))
             {
                 foldersMatchingTestFilter.push_back(fi);
+                anyMatchFound = true;
             }
         }
     }
@@ -621,6 +626,11 @@ void RiaRegressionTestRunner::executeRegressionTests()
     QString     testPath   = testConfig.regressionTestFolder();
     QStringList testFilter = testConfig.testFilter().split(";", QString::SkipEmptyParts);
 
+    if (testConfig.appendTestsAfterTestFilter)
+    {
+        m_appendAllTestsAfterLastItemInFilter = true;
+    }
+
     executeRegressionTests(testPath, testFilter);
 }
 
@@ -632,7 +642,7 @@ void RiaRegressionTestRunner::executeRegressionTests(const QString& regressionTe
     RiuMainWindow* mainWnd = RiuMainWindow::instance();
     if (mainWnd)
     {
-        mainWnd->hideAllDockWindows();
+        mainWnd->hideAllDockWidgets();
         mainWnd->statusBar()->close();
 
         mainWnd->setDefaultWindowSize();

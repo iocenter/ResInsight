@@ -34,6 +34,7 @@
 #include "RimWellLogCurveCommonDataSource.h"
 #include "RimWellLogPlot.h"
 
+#include "RiuDockWidgetTools.h"
 #include "RiuDragDrop.h"
 #include "RiuMdiSubWindow.h"
 #include "RiuToolTipMenu.h"
@@ -63,7 +64,6 @@
 RiuPlotMainWindow::RiuPlotMainWindow()
     : m_activePlotViewWindow(nullptr)
     , m_windowMenu(nullptr)
-    , m_blockSlotSubWindowActivated(false)
 {
     m_mdiArea = new RiuMdiArea;
     connect(m_mdiArea, SIGNAL(subWindowActivated(QMdiSubWindow*)), SLOT(slotSubWindowActivated(QMdiSubWindow*)));
@@ -179,9 +179,11 @@ void RiuPlotMainWindow::cleanUpTemporaryWidgets()
 //--------------------------------------------------------------------------------------------------
 void RiuPlotMainWindow::closeEvent(QCloseEvent* event)
 {
-    RiaApplication* app = RiaApplication::instance();
+    this->saveWinGeoAndDockToolBarLayout();
 
-    app->savePlotWinGeoAndDockToolBarLayout();
+    this->hideAllDockWidgets();
+
+    RiaGuiApplication* app = RiaGuiApplication::instance();
 
     if (app->isMain3dWindowVisible())
     {
@@ -261,7 +263,7 @@ void RiuPlotMainWindow::createMenus()
     fileMenu->addAction(cmdFeatureMgr->action("RicSaveProjectFeature"));
     fileMenu->addAction(cmdFeatureMgr->action("RicSaveProjectAsFeature"));
 
-    std::vector<QAction*> recentFileActions = RiaApplication::instance()->recentFileActions();
+    std::vector<QAction*> recentFileActions = RiaGuiApplication::instance()->recentFileActions();
     for (auto act : recentFileActions)
     {
         fileMenu->addAction(act);
@@ -384,7 +386,7 @@ void RiuPlotMainWindow::createDockPanels()
 {
     {
         QDockWidget* dockWidget = new QDockWidget("Plot Project Tree", this);
-        dockWidget->setObjectName("dockWidget");
+        dockWidget->setObjectName(RiuDockWidgetTools::plotMainWindowProjectTreeName());
         dockWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
 
         m_projectTreeView = new caf::PdmUiTreeView(this);
@@ -421,7 +423,7 @@ void RiuPlotMainWindow::createDockPanels()
 
     {
         QDockWidget* dockWidget = new QDockWidget("Property Editor", this);
-        dockWidget->setObjectName("dockWidget");
+        dockWidget->setObjectName(RiuDockWidgetTools::plotMainWindowPropertyEditorName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
         m_pdmUiPropertyView = new caf::PdmUiPropertyView(dockWidget);
@@ -587,13 +589,7 @@ void RiuPlotMainWindow::updateSummaryPlotToolBar(bool forceUpdateUi)
 //--------------------------------------------------------------------------------------------------
 void RiuPlotMainWindow::removeViewer(QWidget* viewer)
 {
-    m_blockSlotSubWindowActivated = true;
-    m_mdiArea->removeSubWindow(findMdiSubWindow(viewer));
-    m_blockSlotSubWindowActivated = false;
-    if (subWindowsAreTiled())
-    {
-        tileSubWindows();
-    }
+    removeViewerFromMdiArea(m_mdiArea, viewer);
     refreshToolbars();
 }
 
@@ -645,6 +641,7 @@ void RiuPlotMainWindow::setPdmRoot(caf::PdmObject* pdmRoot)
 void RiuPlotMainWindow::slotSubWindowActivated(QMdiSubWindow* subWindow)
 {
     if (!subWindow) return;
+    if (blockSlotSubWindowActivated()) return;
 
     RimProject* proj = RiaApplication::instance()->project();
     if (!proj) return;
@@ -655,11 +652,7 @@ void RiuPlotMainWindow::slotSubWindowActivated(QMdiSubWindow* subWindow)
 
     if (viewWindow && viewWindow != m_activePlotViewWindow)
     {
-        if (!m_blockSlotSubWindowActivated)
-        {
-            selectAsCurrentItem(viewWindow);
-        }
-
+        selectAsCurrentItem(viewWindow);        
         m_activePlotViewWindow = viewWindow;
     }
 
@@ -672,12 +665,8 @@ void RiuPlotMainWindow::slotSubWindowActivated(QMdiSubWindow* subWindow)
 //--------------------------------------------------------------------------------------------------
 void RiuPlotMainWindow::setActiveViewer(QWidget* viewer)
 {
-    m_blockSlotSubWindowActivated = true;
-
     QMdiSubWindow* swin = findMdiSubWindow(viewer);
     if (swin) m_mdiArea->setActiveSubWindow(swin);
-
-    m_blockSlotSubWindowActivated = false;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -777,19 +766,6 @@ void RiuPlotMainWindow::selectedObjectsChanged()
             // Set focus back to the tree view to be able to continue keyboard tree view navigation
             m_projectTreeView->treeView()->setFocus();
         }
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-void RiuPlotMainWindow::hideAllDockWindows()
-{
-    QList<QDockWidget*> dockWidgets = findChildren<QDockWidget*>();
-
-    for (int i = 0; i < dockWidgets.size(); i++)
-    {
-        dockWidgets[i]->close();
     }
 }
 
@@ -900,7 +876,6 @@ void RiuPlotMainWindow::clearWindowTiling()
 {
     QMdiArea::WindowOrder currentActivationOrder = m_mdiArea->activationOrder();
 
-    std::list<QMdiSubWindow*> windowList;
     for (QMdiSubWindow* subWindow : m_mdiArea->subWindowList(currentActivationOrder))
     {
         subWindow->hide();

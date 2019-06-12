@@ -20,7 +20,7 @@
 
 #include "RiuMainWindow.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaBaseDefs.h"
 #include "RiaPreferences.h"
 #include "RiaRegressionTest.h"
@@ -159,7 +159,11 @@ RiuMainWindow::RiuMainWindow()
 //--------------------------------------------------------------------------------------------------
 RiuMainWindow* RiuMainWindow::instance()
 {
-    return RiaApplication::instance()->mainWindow();
+    if (RiaGuiApplication::isRunning())
+    {
+        return RiaGuiApplication::instance()->mainWindow();
+    }
+    return nullptr;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -266,10 +270,10 @@ void RiuMainWindow::cleanupGuiBeforeProjectClose()
 //--------------------------------------------------------------------------------------------------
 void RiuMainWindow::closeEvent(QCloseEvent* event)
 {
-    RiaApplication* app = RiaApplication::instance();
+    this->saveWinGeoAndDockToolBarLayout();
+    this->hideAllDockWidgets();
 
-    app->saveMainWinGeoAndDockToolBarLayout();
-
+    RiaGuiApplication* app = RiaGuiApplication::instance();
     if (app->isMainPlotWindowVisible())
     {
         event->ignore(); // Make Qt think we don't do anything, otherwise it closes the window.
@@ -461,7 +465,7 @@ void RiuMainWindow::createMenus()
     fileMenu->addAction(cmdFeatureMgr->action("RicSaveProjectFeature"));
     fileMenu->addAction(cmdFeatureMgr->action("RicSaveProjectAsFeature"));
 
-    std::vector<QAction*> recentFileActions = RiaApplication::instance()->recentFileActions();
+    std::vector<QAction*> recentFileActions = RiaGuiApplication::instance()->recentFileActions();
     for (auto act : recentFileActions)
     {
         fileMenu->addAction(act);
@@ -660,33 +664,11 @@ void RiuMainWindow::createToolBars()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-class RiuDockWidget : public QDockWidget
-{
-public:
-    explicit RiuDockWidget(const QString& title, QWidget* parent = nullptr, Qt::WindowFlags flags = nullptr)
-        : QDockWidget(title, parent, flags)
-    {
-    }
-
-    void closeEvent(QCloseEvent* event) override
-    {
-        // This event is called when the user clicks the "x" in upper right corner to close the dock widget
-        RiuDockWidgetTools::instance()->setDockWidgetVisibility(objectName(), false);
-
-        QDockWidget::closeEvent(event);
-    }
-};
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
 void RiuMainWindow::createDockPanels()
 {
-    auto dwt = RiuDockWidgetTools::instance();
-
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Project Tree", this);
-        dockWidget->setObjectName(dwt->projectTreeName());
+        QDockWidget* dockWidget = new QDockWidget("Project Tree", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::projectTreeName());
         dockWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
 
         m_projectTreeView = new caf::PdmUiTreeView(this);
@@ -727,8 +709,8 @@ void RiuMainWindow::createDockPanels()
 #endif
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Property Editor", this);
-        dockWidget->setObjectName(dwt->propertyEditorName());
+        QDockWidget* dockWidget = new QDockWidget("Property Editor", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::propertyEditorName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
         m_pdmUiPropertyView = new caf::PdmUiPropertyView(dockWidget);
@@ -738,8 +720,8 @@ void RiuMainWindow::createDockPanels()
     }
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Result Info", this);
-        dockWidget->setObjectName(dwt->resultInfoName());
+        QDockWidget* dockWidget = new QDockWidget("Result Info", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::resultInfoName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
         m_resultInfoPanel = new RiuResultInfoPanel(dockWidget);
         dockWidget->setWidget(m_resultInfoPanel);
@@ -748,8 +730,8 @@ void RiuMainWindow::createDockPanels()
     }
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Process Monitor", this);
-        dockWidget->setObjectName(dwt->processMonitorName());
+        QDockWidget* dockWidget = new QDockWidget("Process Monitor", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::processMonitorName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
         m_processMonitor = new RiuProcessMonitor(dockWidget);
         dockWidget->setWidget(m_processMonitor);
@@ -759,8 +741,8 @@ void RiuMainWindow::createDockPanels()
     }
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Result Plot", this);
-        dockWidget->setObjectName(dwt->resultPlotName());
+        QDockWidget* dockWidget = new QDockWidget("Result Plot", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::resultPlotName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
         m_resultQwtPlot = new RiuResultQwtPlot(dockWidget);
         dockWidget->setWidget(m_resultQwtPlot);
@@ -771,8 +753,8 @@ void RiuMainWindow::createDockPanels()
 
 #ifdef USE_ODB_API
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Mohr's Circle Plot", this);
-        dockWidget->setObjectName(dwt->mohrsCirclePlotName());
+        QDockWidget* dockWidget = new QDockWidget("Mohr's Circle Plot", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::mohrsCirclePlotName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
         m_mohrsCirclePlot = new RiuMohrsCirclePlot(dockWidget);
         dockWidget->setWidget(m_mohrsCirclePlot);
@@ -785,8 +767,8 @@ void RiuMainWindow::createDockPanels()
 #endif
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Relative Permeability Plot", this);
-        dockWidget->setObjectName(dwt->relPermPlotName());
+        QDockWidget* dockWidget = new QDockWidget("Relative Permeability Plot", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::relPermPlotName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
         m_relPermPlotPanel = new RiuRelativePermeabilityPlotPanel(dockWidget);
         dockWidget->setWidget(m_relPermPlotPanel);
@@ -796,8 +778,8 @@ void RiuMainWindow::createDockPanels()
     }
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("PVT Plot", this);
-        dockWidget->setObjectName(dwt->pvtPlotName());
+        QDockWidget* dockWidget = new QDockWidget("PVT Plot", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::pvtPlotName());
         dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
         m_pvtPlotPanel = new RiuPvtPlotPanel(dockWidget);
         dockWidget->setWidget(m_pvtPlotPanel);
@@ -807,8 +789,8 @@ void RiuMainWindow::createDockPanels()
     }
 
     {
-        QDockWidget* dockWidget = new RiuDockWidget("Messages", this);
-        dockWidget->setObjectName(dwt->messagesName());
+        QDockWidget* dockWidget = new QDockWidget("Messages", this);
+        dockWidget->setObjectName(RiuDockWidgetTools::messagesName());
         m_messagePanel = new RiuMessagePanel(dockWidget);
         dockWidget->setWidget(m_messagePanel);
         addDockWidget(Qt::BottomDockWidgetArea, dockWidget);
@@ -1114,13 +1096,7 @@ RiuMessagePanel* RiuMainWindow::messagePanel()
 //--------------------------------------------------------------------------------------------------
 void RiuMainWindow::removeViewer(QWidget* viewer)
 {
-    setBlockSlotSubWindowActivated(true);
-    m_mdiArea->removeSubWindow(findMdiSubWindow(viewer));
-    setBlockSlotSubWindowActivated(false);
-    if (subWindowsAreTiled())
-    {
-        tileSubWindows();
-    }
+    removeViewerFromMdiArea(m_mdiArea, viewer);
     slotRefreshViewActions();
 }
 
@@ -1352,12 +1328,8 @@ void RiuMainWindow::slotSubWindowActivated(QMdiSubWindow* subWindow)
 //--------------------------------------------------------------------------------------------------
 void RiuMainWindow::setActiveViewer(QWidget* viewer)
 {
-    setBlockSlotSubWindowActivated(true);
-
     QMdiSubWindow* swin = findMdiSubWindow(viewer);
     if (swin) m_mdiArea->setActiveSubWindow(swin);
-
-    setBlockSlotSubWindowActivated(false);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1375,8 +1347,7 @@ void appendToggleActionForDockingWidget(QMenu* menu, QWidget* parent, const QStr
 {
     if (menu)
     {
-        auto     dwt    = RiuDockWidgetTools::instance();
-        QAction* action = dwt->toggleActionForWidget(parent, dockWidgetName);
+        QAction* action = RiuDockWidgetTools::toggleActionForWidget(parent, dockWidgetName);
         if (action)
         {
             // Some dock windows are depending on configuration (mohrs circle plot), so do not assert they exist
@@ -1396,22 +1367,26 @@ void RiuMainWindow::slotBuildWindowActions()
         caf::CmdFeatureManager* cmdFeatureMgr = caf::CmdFeatureManager::instance();
         m_windowMenu->addAction(cmdFeatureMgr->action("RicShowPlotWindowFeature"));
         m_windowMenu->addSeparator();
+
+        m_windowMenu->addAction(cmdFeatureMgr->action("RicDefaultDockConfigEclipseFeature"));
+#ifdef USE_ODB_API
+        m_windowMenu->addAction(cmdFeatureMgr->action("RicDefaultDockConfigGeoMechFeature"));
+#endif
+        m_windowMenu->addSeparator();
     }
 
-    auto dwt = RiuDockWidgetTools::instance();
-
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->projectTreeName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->propertyEditorName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->messagesName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->processMonitorName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::projectTreeName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::propertyEditorName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::messagesName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::processMonitorName());
 
     m_windowMenu->addSeparator();
 
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->resultInfoName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->resultPlotName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->relPermPlotName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->pvtPlotName());
-    appendToggleActionForDockingWidget(m_windowMenu, this, dwt->mohrsCirclePlotName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::resultInfoName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::resultPlotName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::relPermPlotName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::pvtPlotName());
+    appendToggleActionForDockingWidget(m_windowMenu, this, RiuDockWidgetTools::mohrsCirclePlotName());
 
     m_windowMenu->addSeparator();
     QAction* cascadeWindowsAction = new QAction("Cascade Windows", this);
@@ -1529,19 +1504,6 @@ void RiuMainWindow::slotSnapshotAllViewsToFile()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RiuMainWindow::hideAllDockWindows()
-{
-    QList<QDockWidget*> dockWidgets = findChildren<QDockWidget*>();
-
-    for (auto* dockWidget : dockWidgets)
-    {
-        dockWidget->close();
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
 void RiuMainWindow::slotDrawStyleChanged(QAction* activatedAction)
 {
     if (!RiaApplication::instance()->activeReservoirView()) return;
@@ -1648,7 +1610,7 @@ void RiuMainWindow::refreshDrawStyleActions()
     if (!eclView)
     {
         Rim2dIntersectionView* intView = dynamic_cast<Rim2dIntersectionView*>(view);
-        if (intView)
+        if (intView && intView->intersection())
         {
             intView->intersection()->firstAncestorOrThisOfType(eclView);
         }
@@ -1696,25 +1658,6 @@ void RiuMainWindow::restoreTreeViewState()
             QModelIndex mi = caf::QTreeViewStateSerializer::getModelIndexFromString(m_projectTreeView->treeView()->model(),
                                                                                     currentIndexString);
             m_projectTreeView->treeView()->setCurrentIndex(mi);
-        }
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-void RiuMainWindow::showDockPanel(const QString& dockPanelName)
-{
-    QList<QDockWidget*> dockWidgets = findChildren<QDockWidget*>();
-
-    foreach (QDockWidget* dock, dockWidgets)
-    {
-        if (dock && dock->objectName() == dockPanelName)
-        {
-            dock->show();
-            dock->raise();
-
-            return;
         }
     }
 }
@@ -1806,7 +1749,7 @@ void RiuMainWindow::updateMemoryUsage()
 //--------------------------------------------------------------------------------------------------
 void RiuMainWindow::showProcessMonitorDockPanel()
 {
-    showDockPanel(RiuDockWidgetTools::instance()->processMonitorName());
+    RiuDockWidgetTools::setDockWidgetVisibility(this, RiuDockWidgetTools::processMonitorName(), true);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1815,6 +1758,17 @@ void RiuMainWindow::showProcessMonitorDockPanel()
 void RiuMainWindow::setDefaultToolbarVisibility()
 {
     m_holoLensToolBar->hide();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RiuMainWindow::applyFontSizesToDockedPlots()
+{
+    m_resultQwtPlot->applyFontSizes(true);
+    m_mohrsCirclePlot->applyFontSizes(true);
+    m_relPermPlotPanel->applyFontSizes(true);
+    m_pvtPlotPanel->applyFontSizes(true);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1902,7 +1856,7 @@ void RiuMainWindow::slotShowRegressionTestDialog()
     regTestConfig.readSettingsFromApplicationStore();
 
     caf::PdmUiPropertyViewDialog regressionTestDialog(this, &regTestConfig, "Regression Test", "");
-    regressionTestDialog.resize(QSize(600, 300));
+    regressionTestDialog.resize(QSize(600, 350));
 
     if (regressionTestDialog.exec() == QDialog::Accepted)
     {
@@ -2075,7 +2029,6 @@ void RiuMainWindow::clearWindowTiling()
 {
     QMdiArea::WindowOrder currentActivationOrder = m_mdiArea->activationOrder();
 
-    std::list<QMdiSubWindow*> windowList;
     for (QMdiSubWindow* subWindow : m_mdiArea->subWindowList(currentActivationOrder))
     {
         subWindow->hide();

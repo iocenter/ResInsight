@@ -20,7 +20,7 @@
 
 #include "RimRegularLegendConfig.h"
 
-#include "RiaApplication.h"
+#include "RiaGuiApplication.h"
 #include "RiaColorTables.h"
 #include "RiaPreferences.h"
 
@@ -262,6 +262,7 @@ void RimRegularLegendConfig::fieldChangedByUi(const caf::PdmFieldHandle* changed
     firstAncestorOrThisOfType(crossPlotCurveSet);
     if (crossPlotCurveSet)
     {
+        crossPlotCurveSet->destroyCurves();
         crossPlotCurveSet->loadDataAndUpdate(true);
     }
 }
@@ -731,14 +732,6 @@ bool RimRegularLegendConfig::showLegend() const
 }
 
 //--------------------------------------------------------------------------------------------------
-///
-//--------------------------------------------------------------------------------------------------
-void RimRegularLegendConfig::setShowLegend(bool show)
-{
-    m_showLegend = show;
-}
-
-//--------------------------------------------------------------------------------------------------
 /// 
 //--------------------------------------------------------------------------------------------------
 caf::TitledOverlayFrame* RimRegularLegendConfig::titledOverlayFrame()
@@ -841,6 +834,12 @@ void RimRegularLegendConfig::defineUiOrdering(QString uiConfigName, caf::PdmUiOr
 {
     if (uiConfigName == "NumLevelsOnly")
     {
+        uiOrdering.add(&m_numLevels);
+        uiOrdering.skipRemainingFields(true);
+    }
+    else if (uiConfigName == "NumIntervalsOnly")
+    {
+        m_numLevels.uiCapability()->setUiName("Number of Intervals");
         uiOrdering.add(&m_numLevels);
         uiOrdering.skipRemainingFields(true);
     }

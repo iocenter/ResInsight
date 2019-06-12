@@ -18,11 +18,24 @@
 
 #include "RicfLoadCase.h"
 
+#include "RiaApplication.h"
 #include "RiaImportEclipseCaseTools.h"
-
 #include "RiaLogging.h"
 
+#include <QFileInfo>
+#include <QDir>
 #include <QStringList>
+
+CAF_PDM_SOURCE_INIT(RicfLoadCaseResult, "loadCaseResult");
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+RicfLoadCaseResult::RicfLoadCaseResult(int caseId)
+{
+    CAF_PDM_InitObject("case_result", "", "", "");
+    CAF_PDM_InitField(&this->caseId, "id", caseId, "", "", "", "");
+}
 
 CAF_PDM_SOURCE_INIT(RicfLoadCase, "loadCase");
 
@@ -37,11 +50,27 @@ RicfLoadCase::RicfLoadCase()
 //--------------------------------------------------------------------------------------------------
 /// 
 //--------------------------------------------------------------------------------------------------
-void RicfLoadCase::execute()
+RicfCommandResponse RicfLoadCase::execute()
 {
-    bool ok = RiaImportEclipseCaseTools::openEclipseCasesFromFile(QStringList({m_path()}), nullptr, true);
+    QString   absolutePath = m_path;
+    QFileInfo projectPathInfo(absolutePath);
+    if (!projectPathInfo.exists())
+    {
+        QDir startDir(RiaApplication::instance()->startDir());
+        absolutePath = startDir.absoluteFilePath(m_path);
+    }
+
+    RiaImportEclipseCaseTools::FileCaseIdMap fileCaseIdMap;
+    bool ok = RiaImportEclipseCaseTools::openEclipseCasesFromFile(QStringList({absolutePath}), &fileCaseIdMap, true);
     if (!ok)
     {
-        RiaLogging::error(QString("loadCase: Unable to load case from %1").arg(m_path()));
+        QString error = QString("loadCase: Unable to load case from %1").arg(absolutePath);
+        RiaLogging::error(error);
+        return RicfCommandResponse(RicfCommandResponse::COMMAND_ERROR, error);
     }
+    CAF_ASSERT(fileCaseIdMap.size() == 1u);
+    RicfLoadCaseResult result;
+    RicfCommandResponse response;
+    response.setResult(new RicfLoadCaseResult(fileCaseIdMap.begin()->second));
+    return response;
 }

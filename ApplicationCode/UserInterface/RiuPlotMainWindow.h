@@ -64,8 +64,6 @@ public:
     void                addViewer(QWidget* viewer, const RimMdiWindowGeometry& windowsGeometry) override;
     void                setActiveViewer(QWidget* subWindow) override;
 
-    void                hideAllDockWindows();
-
     void                setDefaultWindowSize();
 
     void                tileSubWindows() override;
@@ -123,8 +121,6 @@ private:
     std::unique_ptr<caf::PdmUiDragDropInterface> m_dragDropInterface;
     
     caf::PdmUiPropertyView*     m_pdmUiPropertyView;
-
-    bool                        m_blockSlotSubWindowActivated;
 
     std::vector<QWidget*>       m_temporaryWidgets;
 };

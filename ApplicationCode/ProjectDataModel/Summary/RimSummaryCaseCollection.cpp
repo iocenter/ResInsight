@@ -294,8 +294,8 @@ EnsembleParameter RimSummaryCaseCollection::ensembleParameter(const QString& par
     EnsembleParameter eParam;
     eParam.name = paramName;
 
-    bool numericValuesCount = 0;
-    bool textValuesCount = 0;
+    size_t numericValuesCount = 0;
+    size_t textValuesCount = 0;
 
     // Prepare case realization params, and check types
     for (const auto& rimCase : allSummaryCases())
@@ -497,14 +497,16 @@ bool RimSummaryCaseCollection::validateEnsembleCases(const std::vector<RimSummar
 
         if (!errors.isEmpty())
         {
-            errors.prepend("Missing ensemble parameters\n\n");
+            QString textToDisplay = errors.left(500);
 
-            errors.append("\n");
-            errors.append("No parameters file (parameters.txt or runspecification.xml) was found in \n");
-            errors.append("the searched folders. ResInsight searches the home folder of the summary \n");
-            errors.append("case file and the three folder levels above that.\n");
+            textToDisplay.prepend("Missing ensemble parameters\n\n");
 
-            throw errors;
+            textToDisplay.append("\n");
+            textToDisplay.append("No parameters file (parameters.txt or runspecification.xml) was found in \n");
+            textToDisplay.append("the searched folders. ResInsight searches the home folder of the summary \n");
+            textToDisplay.append("case file and the three folder levels above that.\n");
+
+            throw textToDisplay;
         }
         return true;
     }
@@ -576,8 +578,8 @@ QString RimSummaryCaseCollection::nameAndItemCount() const
 //--------------------------------------------------------------------------------------------------
 void RimSummaryCaseCollection::updateIcon()
 {
-    if (m_isEnsemble) setUiIcon(QIcon(":/SummaryEnsemble16x16.png"));
-    else              setUiIcon(QIcon(":/SummaryGroup16x16.png"));
+    if (m_isEnsemble) setUiIconFromResourceString(":/SummaryEnsemble16x16.png");
+    else              setUiIconFromResourceString(":/SummaryGroup16x16.png");
 }
 
 //--------------------------------------------------------------------------------------------------

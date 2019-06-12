@@ -1936,74 +1936,6 @@ void RifReaderEclipseOutput::readWellCells(const ecl_grid_type* mainEclGrid, boo
                 }
 
             } // End of the MSW section
-            else if ( false )
-            {
-                // Code handling None-MSW Wells ... Normal wells that is.
-
-                // Loop over all the grids in the model. If we have connections in one, we will discard
-                // the main grid connections as the well connections are duplicated in the main grid and LGR grids 
-                // Verified on 10 k case JJS. But smarter things could be done, like showing the "main grid well" if turning off the LGR's
-
-                bool hasWellConnectionsInLGR = false;
-
-                for (size_t gridIdx = 1; gridIdx < grids.size(); ++gridIdx)
-                {
-                    RigGridBase* lgrGrid = m_eclipseCase->grid(gridIdx);
-                    if (well_state_has_grid_connections(ert_well_state, lgrGrid->gridName().data()))
-                    {
-                        hasWellConnectionsInLGR = true;
-                        break;
-                    }
-                }
-
-                size_t gridNr = hasWellConnectionsInLGR ? 1 : 0;
-                for (; gridNr < grids.size(); ++gridNr)
-                {
-
-                    // Wellhead. If several grids have a wellhead definition for this well, we use the last one. (Possibly the innermost LGR)
-                    const well_conn_type* ert_wellhead = well_state_iget_wellhead(ert_well_state, static_cast<int>(gridNr));
-                    if (ert_wellhead)
-                    {
-                        wellResFrame.m_wellHead = createWellResultPoint(grids[gridNr], ert_wellhead, -1, -1, wellName);
-                        // HACK: Ert returns open as "this is equally wrong as closed for well heads". 
-                        // Well heads are not open jfr mail communication with HHGS and JH Statoil 07.01.2016
-                        wellResFrame.m_wellHead.m_isOpen = false; 
-
-                        //std::cout << "Wellhead YES at timeIdx: " << timeIdx <<  " wellIdx: " << wellIdx << " Grid: " << gridNr << std::endl;
-                    }
-                    else
-                    {
-                        // std::cout << "Wellhead NO  at timeIdx: " << timeIdx <<  " wellIdx: " << wellIdx << " Grid: " << gridNr << std::endl;
-                        //CVF_ASSERT(0); // This is just a test assert to see if this condition exists in some files and it does.
-                        // All the grids does not necessarily have a well head definition. 
-                    }
-
-                    const well_conn_collection_type* connections = well_state_get_grid_connections(ert_well_state, this->ertGridName(gridNr).data());
-
-                    // Import all well result cells for all connections
-                    if (connections)
-                    {
-                        int connectionCount = well_conn_collection_get_size(connections);
-                        if (connectionCount)
-                        {
-                            wellResFrame.m_wellResultBranches.push_back(RigWellResultBranch());
-                            RigWellResultBranch& wellResultBranch = wellResFrame.m_wellResultBranches.back();
-
-                            wellResultBranch.m_ertBranchId = 0; // Normal wells have only one branch
-
-                            size_t existingCellCount = wellResultBranch.m_branchResultPoints.size();
-                            wellResultBranch.m_branchResultPoints.resize(existingCellCount + connectionCount);
-
-                            for (int connIdx = 0; connIdx < connectionCount; connIdx++)
-                            {
-                                well_conn_type* ert_connection = well_conn_collection_iget(connections, connIdx);
-                                wellResultBranch.m_branchResultPoints[existingCellCount + connIdx] = 
-                                    createWellResultPoint(grids[gridNr], ert_connection, -1, -1, wellName);
-                            }
-                        }
-                    }
-                }
-            }
             else
             {
                 // Code handling None-MSW Wells ... Normal wells that is.
@@ -2251,14 +2183,16 @@ ecl_grid_type* RifReaderEclipseOutput::loadMainGrid() const
     ecl_grid_type* mainEclGrid = nullptr;
 
     {
-        if (m_ecl_init_file && RifEclipseOutputFileTools::isExportedFromIntersect(m_ecl_init_file))
+        if (m_ecl_init_file)
         {
             ecl_kw_type* actnumFromPorv = RifEclipseOutputFileTools::createActnumFromPorv(m_ecl_init_file);
             if (actnumFromPorv)
             {
                 int* actnum_values = ecl_kw_get_int_ptr(actnumFromPorv);
-
-                mainEclGrid = ecl_grid_alloc_ext_actnum(RiaStringEncodingTools::toNativeEncoded(m_fileName).data(), actnum_values);
+                if (actnum_values)
+                {
+                    mainEclGrid = ecl_grid_alloc_ext_actnum(RiaStringEncodingTools::toNativeEncoded(m_fileName).data(), actnum_values);
+                }
 
                 ecl_kw_free(actnumFromPorv);
             }
@@ -2302,6 +2236,7 @@ void RifReaderEclipseOutput::extractResultValuesBasedOnPorosityModel(RiaDefines:
             actCellInfo->gridActiveCellCounts(i, matrixActiveCellCount);
             fracActCellInfo->gridActiveCellCounts(i, fractureActiveCellCount);
 
+
             if (matrixOrFracture == RiaDefines::MATRIX_MODEL)
             {
                 destinationResultValues->insert(destinationResultValues->end(), 
@@ -2310,9 +2245,16 @@ void RifReaderEclipseOutput::extractResultValuesBasedOnPorosityModel(RiaDefines:
             }
             else
             {
-                destinationResultValues->insert(destinationResultValues->end(), 
-                                                sourceResultValues.begin() + sourceStartPosition + matrixActiveCellCount, 
-                                                sourceResultValues.begin() + sourceStartPosition + matrixActiveCellCount + fractureActiveCellCount);
+                if ((matrixActiveCellCount + fractureActiveCellCount) > sourceResultValues.size())
+                {
+                    // Special handling of the situation where we only have data for one fracture mode
+                    matrixActiveCellCount = 0;
+                }
+
+                destinationResultValues->insert(destinationResultValues->end(),
+                                                sourceResultValues.begin() + sourceStartPosition + matrixActiveCellCount,
+                                                sourceResultValues.begin() + sourceStartPosition + matrixActiveCellCount +
+                                                    fractureActiveCellCount);
             }
 
             sourceStartPosition += (matrixActiveCellCount + fractureActiveCellCount);
