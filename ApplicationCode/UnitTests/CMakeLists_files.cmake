@@ -42,19 +42,26 @@ ${CMAKE_CURRENT_LIST_DIR}/RiaEclipseUnitTools-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaTextFileCompare-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RifCaseRealizationParametersReader-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RigWellLogExtractor-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RigWellPathGeometryTools-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RifEclipseSummaryAddress-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaTimeHistoryCurveTools-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/SolveSpaceSolver-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaPolyArcLineSampler-Test.cpp
-${CMAKE_CURRENT_LIST_DIR}/RifEclipseDataTableFormatter-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RifTextDataTableFormatter-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaWeightedMean-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaWeightedGeometricMeanCalculator-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaWeightedHarmonicMeanCalculator-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RiaCellDividingTools-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiaFilePathTools-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/Intersect-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RifPerforationIntervalReader-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimWellPathCompletions-Test.cpp
 ${CMAKE_CURRENT_LIST_DIR}/RimSummaryCaseCollection-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RifActiveCellsReader-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RifCsvDataTableFormatter-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiaSummaryCurveAnalyzer-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RiaStdStringTools-Test.cpp
+${CMAKE_CURRENT_LIST_DIR}/RifWellMeasurementReader-Test.cpp
 )
 
 if (RESINSIGHT_ENABLE_GRPC)

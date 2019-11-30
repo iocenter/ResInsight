@@ -27,20 +27,18 @@
 
 #include <QFileInfo>
 
-CAF_PDM_SOURCE_INIT(RimCalcScript, "CalcScript");
+CAF_PDM_SOURCE_INIT( RimCalcScript, "CalcScript" );
 
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
 RimCalcScript::RimCalcScript()
 {
-    CAF_PDM_InitObject("CalcScript", ":/OctaveScriptFile16x16.png", "Calc Script", "");
+    CAF_PDM_InitObject( "CalcScript", ":/OctaveScriptFile16x16.png", "Calc Script", "" );
 
-    CAF_PDM_InitField(&absoluteFileName, "AbsolutePath", QString(), "Location", "", "", "");
-    CAF_PDM_InitField(&content, "Content", QString(), "Directory", "", "", "");
-    RiaFieldhandleTools::disableWriteAndSetFieldHidden(&content);
+    CAF_PDM_InitField( &absoluteFileName, "AbsolutePath", QString(), "Location", "", "", "" );
 
-    absoluteFileName.uiCapability()->setUiEditorTypeName(caf::PdmUiFilePathEditor::uiEditorTypeName());
+    absoluteFileName.uiCapability()->setUiEditorTypeName( caf::PdmUiFilePathEditor::uiEditorTypeName() );
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -51,33 +49,76 @@ RimCalcScript::~RimCalcScript() {}
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-QStringList RimCalcScript::createCommandLineArguments(const QString& absoluteFileNameScript)
+RimCalcScript::ScriptType RimCalcScript::scriptType( const QString& absoluteFileNameScript )
+{
+    QFileInfo fileInfo( absoluteFileNameScript );
+    if ( fileInfo.suffix() == "py" )
+    {
+        return PYTHON;
+    }
+    else if ( fileInfo.suffix() == "m" )
+    {
+        return OCTAVE;
+    }
+    return UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+RimCalcScript::ScriptType RimCalcScript::scriptType() const
+{
+    return scriptType( absoluteFileName() );
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+QStringList RimCalcScript::createCommandLineArguments( const QString& absoluteFileNameScript )
 {
     QStringList arguments;
 
+    if ( scriptType( absoluteFileNameScript ) == PYTHON )
     {
-        auto app = RiaApplication::instance();
-
-        arguments = app->octaveArguments();
-        arguments.append("--path");
+        arguments.append( absoluteFileNameScript );
     }
-
+    else if ( scriptType( absoluteFileNameScript ) == OCTAVE )
     {
-        QFileInfo fi(absoluteFileNameScript);
-        QString   octaveFunctionSearchPath = fi.absolutePath();
-        QString   absFilePath              = fi.absoluteFilePath();
+        {
+            auto app = RiaApplication::instance();
 
-        arguments << octaveFunctionSearchPath;
-        arguments << absFilePath;
+            arguments = app->octaveArguments();
+            arguments.append( "--path" );
+        }
+
+        {
+            QFileInfo fi( absoluteFileNameScript );
+            QString   octaveFunctionSearchPath = fi.absolutePath();
+            QString   absFilePath              = fi.absoluteFilePath();
+
+            arguments << octaveFunctionSearchPath;
+            arguments << absFilePath;
+        }
     }
 
     bool debugPrintArgumentText = false;
-    if (debugPrintArgumentText)
+    if ( debugPrintArgumentText )
     {
-        QString argumentString = arguments.join(" ");
+        QString argumentString = arguments.join( " " );
 
-        RiaLogging::info("Octave arguments : " + argumentString);
+        RiaLogging::info( "Scriptarguments : " + argumentString );
     }
 
     return arguments;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimCalcScript::defineUiTreeOrdering( caf::PdmUiTreeOrdering& uiTreeOrdering, QString uiConfigName /*= ""*/ )
+{
+    if ( scriptType() == PYTHON )
+    {
+        uiCapability()->setUiIconFromResourceString( ":/PythonScriptFile16x16.png" );
+    }
 }

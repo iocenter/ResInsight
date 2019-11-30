@@ -18,8 +18,9 @@
 
 #pragma once
 
+#include "RiaQDateTimeTools.h"
 #include "RiuInterfaceToViewWindow.h"
-#include "RiuQwtPlot.h"
+#include "RiuQwtPlotWidget.h"
 
 #include "cafPdmPointer.h"
 
@@ -27,32 +28,53 @@
 
 class RimEnsembleCurveSet;
 class RiuCvfOverlayItemWidget;
+class RiuQwtPlotZoomer;
 
 //==================================================================================================
 //
 //
 //
 //==================================================================================================
-class RiuSummaryQwtPlot : public RiuQwtPlot
+class RiuSummaryQwtPlot : public RiuQwtPlotWidget, public RiuInterfaceToViewWindow
 {
     Q_OBJECT;
 
 public:
-    RiuSummaryQwtPlot(RimViewWindow* ownerViewWindow, QWidget* parent = nullptr);
+    RiuSummaryQwtPlot( RimPlot* plotDefinition, QWidget* parent = nullptr );
+    ~RiuSummaryQwtPlot() override;
 
-    void useDateBasedTimeAxis();
+    void useDateBasedTimeAxis(
+        const QString&                          dateFormat,
+        const QString&                          timeFormat,
+        RiaQDateTimeTools::DateFormatComponents dateComponents = RiaQDateTimeTools::DATE_FORMAT_UNSPECIFIED,
+        RiaQDateTimeTools::TimeFormatComponents timeComponents = RiaQDateTimeTools::TIME_FORMAT_UNSPECIFIED );
+
     void useTimeBasedTimeAxis();
 
-    void addOrUpdateEnsembleCurveSetLegend(RimEnsembleCurveSet* curveSetToShowLegendFor);
-    void removeEnsembleCurveSetLegend(RimEnsembleCurveSet* curveSetToShowLegendFor);
+    void addOrUpdateEnsembleCurveSetLegend( RimEnsembleCurveSet* curveSetToShowLegendFor );
+    void removeEnsembleCurveSetLegend( RimEnsembleCurveSet* curveSetToShowLegendFor );
+
+    RimViewWindow* ownerViewWindow() const override;
+
+    void setLegendFontSize( int fontSize );
+    void setLegendVisible( bool visible );
 
 protected:
-    void keyPressEvent(QKeyEvent*) override;
-    void contextMenuEvent(QContextMenuEvent*) override;
+    void keyPressEvent( QKeyEvent* ) override;
+    void contextMenuEvent( QContextMenuEvent* ) override;
     void setDefaults();
     void updateLayout() override;
+    bool isZoomerActive() const override;
+    void endZoomOperations() override;
+
+private slots:
+    void onZoomedSlot();
+
 private:
     void updateLegendLayout();
+
     std::map<caf::PdmPointer<RimEnsembleCurveSet>, QPointer<RiuCvfOverlayItemWidget>> m_ensembleLegendWidgets;
 
+    QPointer<RiuQwtPlotZoomer> m_zoomerLeft;
+    QPointer<RiuQwtPlotZoomer> m_zoomerRight;
 };

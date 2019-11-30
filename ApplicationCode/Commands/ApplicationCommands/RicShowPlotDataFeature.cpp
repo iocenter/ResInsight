@@ -1,24 +1,26 @@
 /////////////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2017 Statoil ASA
-// 
+//
 //  ResInsight is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation, either version 3 of the License, or
 //  (at your option) any later version.
-// 
+//
 //  ResInsight is distributed in the hope that it will be useful, but WITHOUT ANY
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or
 //  FITNESS FOR A PARTICULAR PURPOSE.
-// 
-//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html> 
+//
+//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html>
 //  for more details.
 //
 /////////////////////////////////////////////////////////////////////////////////
 
 #include "RicShowPlotDataFeature.h"
 
+#include "RiaFeatureCommandContext.h"
 #include "RiaGuiApplication.h"
+#include "RiaPreferences.h"
 
 #include "RimGridCrossPlot.h"
 #include "RimGridCrossPlotCurve.h"
@@ -36,8 +38,7 @@
 
 #include <QAction>
 
-
-CAF_CMD_SOURCE_INIT(RicShowPlotDataFeature, "RicShowPlotDataFeature");
+CAF_CMD_SOURCE_INIT( RicShowPlotDataFeature, "RicShowPlotDataFeature" );
 
 //--------------------------------------------------------------------------------------------------
 /// Private text provider class for summary plots
@@ -45,50 +46,52 @@ CAF_CMD_SOURCE_INIT(RicShowPlotDataFeature, "RicShowPlotDataFeature");
 class RiuTabbedSummaryPlotTextProvider : public RiuTabbedTextProvider
 {
 public:
-    RiuTabbedSummaryPlotTextProvider(RimSummaryPlot* summaryPlot)
-        : m_summaryPlot(summaryPlot)
+    RiuTabbedSummaryPlotTextProvider( RimSummaryPlot* summaryPlot )
+        : m_summaryPlot( summaryPlot )
     {
     }
 
-    virtual bool isValid() const override
+    bool isValid() const override
     {
         return m_summaryPlot.notNull();
     }
 
     QString description() const override
     {
-        CVF_ASSERT(m_summaryPlot.notNull() && "Need to check that provider is valid");
+        CVF_ASSERT( m_summaryPlot.notNull() && "Need to check that provider is valid" );
         return m_summaryPlot->description();
     }
 
-    QString tabTitle(int tabIndex) const override
+    QString tabTitle( int tabIndex ) const override
     {
         auto allTabs = tabs();
-        CVF_ASSERT(tabIndex < (int)allTabs.size());
+        CVF_ASSERT( tabIndex < (int)allTabs.size() );
         DateTimePeriod timePeriod = allTabs[tabIndex];
-        if (timePeriod == DateTimePeriod::NONE)
+        if ( timePeriod == DateTimePeriod::NONE )
         {
             return "No Resampling";
         }
         else
         {
-            return QString("Plot Data, %1").arg(RiaQDateTimeTools::dateTimePeriodName(timePeriod));
+            return QString( "Plot Data, %1" ).arg( RiaQDateTimeTools::dateTimePeriodName( timePeriod ) );
         }
     }
 
-    QString tabText(int tabIndex) const override
+    QString tabText( int tabIndex ) const override
     {
-        CVF_ASSERT(m_summaryPlot.notNull() && "Need to check that provider is valid");
+        CVF_ASSERT( m_summaryPlot.notNull() && "Need to check that provider is valid" );
 
-        DateTimePeriod timePeriod = indexToPeriod(tabIndex);
+        DateTimePeriod timePeriod = indexToPeriod( tabIndex );
 
-        if (m_summaryPlot->containsResamplableCurves())
+        if ( m_summaryPlot->containsResamplableCurves() )
         {
-            return m_summaryPlot->asciiDataForPlotExport(timePeriod);
+            RiaPreferences* prefs = RiaApplication::instance()->preferences();
+
+            return m_summaryPlot->asciiDataForSummaryPlotExport( timePeriod, prefs->showSummaryTimeAsLongString() );
         }
         else
         {
-            return m_summaryPlot->asciiDataForPlotExport();
+            return m_summaryPlot->asciiDataForSummaryPlotExport( DateTimePeriod::NONE, true );
         }
     }
 
@@ -98,10 +101,10 @@ public:
     }
 
 private:
-    static DateTimePeriod indexToPeriod(int tabIndex)
+    static DateTimePeriod indexToPeriod( int tabIndex )
     {
         auto allTabs = tabs();
-        CVF_ASSERT(tabIndex < (int)allTabs.size());
+        CVF_ASSERT( tabIndex < (int)allTabs.size() );
         DateTimePeriod timePeriod = allTabs[tabIndex];
         return timePeriod;
     }
@@ -109,8 +112,8 @@ private:
     static std::vector<DateTimePeriod> tabs()
     {
         std::vector<DateTimePeriod> dateTimePeriods = RiaQDateTimeTools::dateTimePeriods();
-        dateTimePeriods.erase(std::remove(dateTimePeriods.begin(), dateTimePeriods.end(), DateTimePeriod::DECADE),
-                              dateTimePeriods.end());
+        dateTimePeriods.erase( std::remove( dateTimePeriods.begin(), dateTimePeriods.end(), DateTimePeriod::DECADE ),
+                               dateTimePeriods.end() );
         return dateTimePeriods;
     }
 
@@ -124,37 +127,37 @@ private:
 class RiuTabbedGridCrossPlotTextProvider : public RiuTabbedTextProvider
 {
 public:
-    RiuTabbedGridCrossPlotTextProvider(RimGridCrossPlot* crossPlot)
-        : m_crossPlot(crossPlot)
+    RiuTabbedGridCrossPlotTextProvider( RimGridCrossPlot* crossPlot )
+        : m_crossPlot( crossPlot )
     {
     }
 
-    virtual bool isValid() const override
+    bool isValid() const override
     {
         return m_crossPlot.notNull();
     }
 
-    virtual QString description() const override
+    QString description() const override
     {
-        CVF_ASSERT(m_crossPlot.notNull() && "Need to check that provider is valid");
+        CVF_ASSERT( m_crossPlot.notNull() && "Need to check that provider is valid" );
         return m_crossPlot->createAutoName();
     }
 
-    virtual QString tabTitle(int tabIndex) const override
+    QString tabTitle( int tabIndex ) const override
     {
-        CVF_ASSERT(m_crossPlot.notNull() && "Need to check that provider is valid");
-        return m_crossPlot->asciiTitleForPlotExport(tabIndex);
+        CVF_ASSERT( m_crossPlot.notNull() && "Need to check that provider is valid" );
+        return m_crossPlot->asciiTitleForPlotExport( tabIndex );
     }
 
-    virtual QString tabText(int tabIndex) const override
+    QString tabText( int tabIndex ) const override
     {
-        CVF_ASSERT(m_crossPlot.notNull() && "Need to check that provider is valid");
-        return m_crossPlot->asciiDataForPlotExport(tabIndex);
+        CVF_ASSERT( m_crossPlot.notNull() && "Need to check that provider is valid" );
+        return m_crossPlot->asciiDataForGridCrossPlotExport( tabIndex );
     }
 
-    virtual int tabCount() const override
+    int tabCount() const override
     {
-        CVF_ASSERT(m_crossPlot.notNull() && "Need to check that provider is valid");
+        CVF_ASSERT( m_crossPlot.notNull() && "Need to check that provider is valid" );
         return (int)m_crossPlot->dataSets().size();
     }
 
@@ -166,17 +169,23 @@ private:
 ///
 ///
 /// RicShowPlotDataFeature
-/// 
-/// 
+///
+///
 //--------------------------------------------------------------------------------------------------
 bool RicShowPlotDataFeature::isCommandEnabled()
 {
-    auto selectedSummaryPlots = caf::selectedObjectsByType<RimSummaryPlot*>();
-    if (selectedSummaryPlots.size() > 0)
+    QString content = RiaFeatureCommandContext::instance()->contentString();
+    if ( !content.isEmpty() )
     {
-        for (auto c : selectedSummaryPlots)
+        return true;
+    }
+
+    auto selectedSummaryPlots = caf::selectedObjectsByType<RimSummaryPlot*>();
+    if ( selectedSummaryPlots.size() > 0 )
+    {
+        for ( auto c : selectedSummaryPlots )
         {
-            if (dynamic_cast<RimSummaryCrossPlot*>(c))
+            if ( dynamic_cast<RimSummaryCrossPlot*>( c ) )
             {
                 return false;
             }
@@ -186,74 +195,88 @@ bool RicShowPlotDataFeature::isCommandEnabled()
     }
 
     auto wellLogPlots = caf::selectedObjectsByType<RimWellLogPlot*>();
-    if (wellLogPlots.size() > 0) return true;
+    if ( wellLogPlots.size() > 0 ) return true;
 
     auto gridCrossPlots = caf::selectedObjectsByType<RimGridCrossPlot*>();
-    if (gridCrossPlots.size() > 0) return true;
+    if ( gridCrossPlots.size() > 0 ) return true;
 
     return false;
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RicShowPlotDataFeature::onActionTriggered(bool isChecked)
+void RicShowPlotDataFeature::onActionTriggered( bool isChecked )
 {
+    QString content = RiaFeatureCommandContext::instance()->contentString();
+    if ( !content.isEmpty() )
+    {
+        QString title = "Data Content";
+        {
+            QString titleCandidate = RiaFeatureCommandContext::instance()->titleString();
+            if ( !titleCandidate.isEmpty() ) title = titleCandidate;
+        }
+
+        RicShowPlotDataFeature::showTextWindow( title, content );
+
+        return;
+    }
+
     this->disableModelChangeContribution();
 
     std::vector<RimSummaryPlot*>   selectedSummaryPlots = caf::selectedObjectsByType<RimSummaryPlot*>();
-    std::vector<RimWellLogPlot*>   wellLogPlots = caf::selectedObjectsByType<RimWellLogPlot*>();
-    std::vector<RimGridCrossPlot*> crossPlots   = caf::selectedObjectsByType<RimGridCrossPlot*>();
-    if (selectedSummaryPlots.size() == 0 && wellLogPlots.size() == 0 && crossPlots.size() == 0)
+    std::vector<RimWellLogPlot*>   wellLogPlots         = caf::selectedObjectsByType<RimWellLogPlot*>();
+    std::vector<RimGridCrossPlot*> crossPlots           = caf::selectedObjectsByType<RimGridCrossPlot*>();
+    if ( selectedSummaryPlots.size() == 0 && wellLogPlots.size() == 0 && crossPlots.size() == 0 )
     {
-        CVF_ASSERT(false);
+        CVF_ASSERT( false );
 
         return;
     }
 
     RiuPlotMainWindow* plotwindow = RiaGuiApplication::instance()->mainPlotWindow();
-    CVF_ASSERT(plotwindow);
+    CVF_ASSERT( plotwindow );
 
-    for (RimSummaryPlot* summaryPlot : selectedSummaryPlots)
+    for ( RimSummaryPlot* summaryPlot : selectedSummaryPlots )
     {
-        auto textProvider = new RiuTabbedSummaryPlotTextProvider(summaryPlot);
-        RicShowPlotDataFeature::showTabbedTextWindow(textProvider);
+        auto textProvider = new RiuTabbedSummaryPlotTextProvider( summaryPlot );
+        RicShowPlotDataFeature::showTabbedTextWindow( textProvider );
     }
 
-    for (RimWellLogPlot* wellLogPlot : wellLogPlots)
+    for ( RimWellLogPlot* wellLogPlot : wellLogPlots )
     {
-        QString title = wellLogPlot->description();
-        QString text = wellLogPlot->asciiDataForPlotExport();
-        RicShowPlotDataFeature::showTextWindow(title, text);
+        QString title = wellLogPlot->multiPlotTitle();
+        QString text  = wellLogPlot->asciiDataForPlotExport();
+        RicShowPlotDataFeature::showTextWindow( title, text );
     }
 
-    for (RimGridCrossPlot* crossPlot : crossPlots)
+    for ( RimGridCrossPlot* crossPlot : crossPlots )
     {
-        auto textProvider = new RiuTabbedGridCrossPlotTextProvider(crossPlot);
-        RicShowPlotDataFeature::showTabbedTextWindow(textProvider);
+        auto textProvider = new RiuTabbedGridCrossPlotTextProvider( crossPlot );
+        RicShowPlotDataFeature::showTabbedTextWindow( textProvider );
     }
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RicShowPlotDataFeature::setupActionLook(QAction* actionToSetup)
+void RicShowPlotDataFeature::setupActionLook( QAction* actionToSetup )
 {
-    actionToSetup->setText("Show Plot Data");
-    actionToSetup->setIcon(QIcon(":/PlotWindow24x24.png"));
+    actionToSetup->setText( "Show Plot Data" );
+    actionToSetup->setIcon( QIcon( ":/PlotWindow24x24.png" ) );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RicShowPlotDataFeature::showTabbedTextWindow(RiuTabbedTextProvider* textProvider)
+void RicShowPlotDataFeature::showTabbedTextWindow( RiuTabbedTextProvider* textProvider )
 {
     RiuPlotMainWindow* plotwindow = RiaGuiApplication::instance()->mainPlotWindow();
-    CVF_ASSERT(plotwindow);
+    CVF_ASSERT( plotwindow );
 
-    RiuTabbedTextDialog* textWidget = new RiuTabbedTextDialog(textProvider);
-    textWidget->setMinimumSize(800, 600);
-    plotwindow->addToTemporaryWidgets(textWidget);
+    RiuTabbedTextDialog* textWidget = new RiuTabbedTextDialog( textProvider );
+    textWidget->setMinimumSize( 800, 600 );
+    plotwindow->addToTemporaryWidgets( textWidget );
     textWidget->show();
     textWidget->redrawText();
 }
@@ -261,18 +284,18 @@ void RicShowPlotDataFeature::showTabbedTextWindow(RiuTabbedTextProvider* textPro
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RicShowPlotDataFeature::showTextWindow(const QString& title, const QString& text)
+void RicShowPlotDataFeature::showTextWindow( const QString& title, const QString& text )
 {
     RiuPlotMainWindow* plotwindow = RiaGuiApplication::instance()->mainPlotWindow();
-    CVF_ASSERT(plotwindow);
+    CVF_ASSERT( plotwindow );
 
     RiuTextDialog* textWiget = new RiuTextDialog();
-    textWiget->setMinimumSize(400, 600);
+    textWiget->setMinimumSize( 400, 600 );
 
-    textWiget->setWindowTitle(title);
-    textWiget->setText(text);
+    textWiget->setWindowTitle( title );
+    textWiget->setText( text );
 
     textWiget->show();
 
-    plotwindow->addToTemporaryWidgets(textWiget);
+    plotwindow->addToTemporaryWidgets( textWiget );
 }

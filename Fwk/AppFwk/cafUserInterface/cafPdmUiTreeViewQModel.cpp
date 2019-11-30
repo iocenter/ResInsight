@@ -69,7 +69,7 @@ PdmUiTreeViewQModel::PdmUiTreeViewQModel(PdmUiTreeViewEditor* treeViewEditor)
 void PdmUiTreeViewQModel::setPdmItemRoot(PdmUiItem* rootItem)
 {
     // Check if we are already watching this root
-    if (m_treeOrderingRoot && m_treeOrderingRoot->activeItem() == rootItem)
+    if (rootItem && m_treeOrderingRoot && m_treeOrderingRoot->activeItem() == rootItem)
     {
         this->updateSubTree(rootItem);
         return;
@@ -394,6 +394,28 @@ void PdmUiTreeViewQModel::updateEditorsForSubTree(PdmUiTreeOrdering* root)
     {
         updateEditorsForSubTree(root->child(i));
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+std::list<QModelIndex> PdmUiTreeViewQModel::allIndicesRecursive(const QModelIndex& current) const
+{
+    std::list<QModelIndex> currentAndDescendants;
+    currentAndDescendants.push_back(current);
+
+    int rows = rowCount(current);
+    int cols = columnCount(current);
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int col = 0; col < cols; ++col)
+        {
+            QModelIndex childIndex = index(row, col, current);
+            std::list<QModelIndex> subList = allIndicesRecursive(childIndex);
+            currentAndDescendants.insert(currentAndDescendants.end(), subList.begin(), subList.end());
+        }
+    }
+    return currentAndDescendants;
 }
 
 //--------------------------------------------------------------------------------------------------

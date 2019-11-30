@@ -23,7 +23,7 @@
 #include "RimSummaryCase.h"
 #include "RimSummaryCaseCollection.h"
 
-#include "RiuSummaryVectorDescriptionMap.h"
+#include "RiuSummaryQuantityNameInfoProvider.h"
 
 //--------------------------------------------------------------------------------------------------
 ///
@@ -45,9 +45,9 @@ void RimSummaryPlotNameHelper::clear()
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RimSummaryPlotNameHelper::appendAddresses(const std::vector<RifEclipseSummaryAddress>& addresses)
+void RimSummaryPlotNameHelper::appendAddresses( const std::vector<RifEclipseSummaryAddress>& addresses )
 {
-    m_analyzer.appendAdresses(addresses);
+    m_analyzer.appendAddresses( addresses );
 
     extractPlotTitleSubStrings();
 }
@@ -55,13 +55,13 @@ void RimSummaryPlotNameHelper::appendAddresses(const std::vector<RifEclipseSumma
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RimSummaryPlotNameHelper::setSummaryCases(const std::vector<RimSummaryCase*>& summaryCases)
+void RimSummaryPlotNameHelper::setSummaryCases( const std::vector<RimSummaryCase*>& summaryCases )
 {
     m_summaryCases.clear();
 
-    m_summaryCases.resize(summaryCases.size());
+    m_summaryCases.resize( summaryCases.size() );
 
-    for (size_t i = 0; i < summaryCases.size(); i++)
+    for ( size_t i = 0; i < summaryCases.size(); i++ )
     {
         m_summaryCases[i] = summaryCases[i];
     }
@@ -72,13 +72,13 @@ void RimSummaryPlotNameHelper::setSummaryCases(const std::vector<RimSummaryCase*
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-void RimSummaryPlotNameHelper::setEnsembleCases(const std::vector<RimSummaryCaseCollection*>& ensembleCases)
+void RimSummaryPlotNameHelper::setEnsembleCases( const std::vector<RimSummaryCaseCollection*>& ensembleCases )
 {
     m_ensembleCases.clear();
 
-    m_ensembleCases.resize(ensembleCases.size());
+    m_ensembleCases.resize( ensembleCases.size() );
 
-    for (size_t i = 0; i < ensembleCases.size(); i++)
+    for ( size_t i = 0; i < ensembleCases.size(); i++ )
     {
         m_ensembleCases[i] = ensembleCases[i];
     }
@@ -93,37 +93,56 @@ QString RimSummaryPlotNameHelper::plotTitle() const
 {
     QString title;
 
-    if (!m_titleCaseName.isEmpty())
+    if ( !m_titleCaseName.isEmpty() )
     {
-        if (!title.isEmpty()) title += ", ";
+        if ( !title.isEmpty() ) title += ", ";
         title += m_titleCaseName;
     }
 
-    if (!m_titleWellName.empty())
+    if ( !m_titleWellName.empty() )
     {
-        if (!title.isEmpty()) title += ", ";
-        title += QString::fromStdString(m_titleWellName);
+        if ( !title.isEmpty() ) title += ", ";
+        title += QString::fromStdString( m_titleWellName );
     }
 
-    if (!m_titleWellGroupName.empty())
+    if ( !m_titleWellGroupName.empty() )
     {
-        if (!title.isEmpty()) title += ", ";
-        title += QString::fromStdString(m_titleWellGroupName);
+        if ( !title.isEmpty() ) title += ", ";
+        title += QString::fromStdString( m_titleWellGroupName );
     }
 
-    if (!m_titleRegion.empty())
+    if ( !m_titleRegion.empty() )
     {
-        if (!title.isEmpty()) title += ", ";
-        title += "Region : " + QString::fromStdString(m_titleRegion);
+        if ( !title.isEmpty() ) title += ", ";
+        title += "Region : " + QString::fromStdString( m_titleRegion );
     }
 
-    if (!m_titleQuantity.empty())
+    if ( !m_titleBlock.empty() )
     {
-        if (!title.isEmpty()) title += ", ";
-        title += QString::fromStdString(RiuSummaryVectorDescriptionMap::instance()->vectorLongName(m_titleQuantity, true));
+        if ( !title.isEmpty() ) title += ", ";
+        title += "Block : " + QString::fromStdString( m_titleBlock );
     }
 
-    if (title.isEmpty())
+    if ( !m_titleSegment.empty() )
+    {
+        if ( !title.isEmpty() ) title += ", ";
+        title += "Segment : " + QString::fromStdString( m_titleSegment );
+    }
+
+    if ( !m_titleCompletion.empty() )
+    {
+        if ( !title.isEmpty() ) title += ", ";
+        title += "Completion : " + QString::fromStdString( m_titleCompletion );
+    }
+
+    if ( !m_titleQuantity.empty() )
+    {
+        if ( !title.isEmpty() ) title += ", ";
+        title += QString::fromStdString(
+            RiuSummaryQuantityNameInfoProvider::instance()->longNameFromQuantityName( m_titleQuantity, true ) );
+    }
+
+    if ( title.isEmpty() )
     {
         title = "Composed Plot";
     }
@@ -134,9 +153,9 @@ QString RimSummaryPlotNameHelper::plotTitle() const
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-bool RimSummaryPlotNameHelper::isQuantityInTitle() const
+bool RimSummaryPlotNameHelper::isPlotDisplayingSingleQuantity() const
 {
-    return !m_titleQuantity.empty();
+    return m_analyzer.quantities().size() == 1;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -174,12 +193,39 @@ bool RimSummaryPlotNameHelper::isCaseInTitle() const
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
+bool RimSummaryPlotNameHelper::isBlockInTitle() const
+{
+    return !m_titleBlock.empty();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimSummaryPlotNameHelper::isSegmentInTitle() const
+{
+    return !m_titleSegment.empty();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RimSummaryPlotNameHelper::isCompletionInTitle() const
+{
+    return !m_titleCompletion.empty();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
 void RimSummaryPlotNameHelper::clearTitleSubStrings()
 {
     m_titleQuantity.clear();
     m_titleRegion.clear();
     m_titleWellName.clear();
     m_titleRegion.clear();
+    m_titleBlock.clear();
+    m_titleSegment.clear();
+    m_titleCompletion.clear();
 
     m_titleCaseName.clear();
 }
@@ -191,51 +237,69 @@ void RimSummaryPlotNameHelper::extractPlotTitleSubStrings()
 {
     clearTitleSubStrings();
 
-    auto quantities     = m_analyzer.quantities();
     auto wellNames      = m_analyzer.wellNames();
     auto wellGroupNames = m_analyzer.wellGroupNames();
     auto regions        = m_analyzer.regionNumbers();
+    auto blocks         = m_analyzer.blocks();
     auto categories     = m_analyzer.categories();
 
-    if (categories.size() == 1)
+    if ( categories.size() == 1 )
     {
-        if (quantities.size() == 1)
+        m_titleQuantity = m_analyzer.quantityNameForTitle();
+
+        if ( wellNames.size() == 1 )
         {
-            m_titleQuantity = *(quantities.begin());
+            m_titleWellName = *( wellNames.begin() );
+
+            {
+                auto segments = m_analyzer.wellSegmentNumbers( m_titleWellName );
+                if ( segments.size() == 1 )
+                {
+                    m_titleSegment = std::to_string( *( segments.begin() ) );
+                }
+            }
+
+            {
+                auto completions = m_analyzer.wellCompletions( m_titleWellName );
+                if ( completions.size() == 1 )
+                {
+                    m_titleCompletion = *( completions.begin() );
+                }
+            }
         }
 
-        if (wellNames.size() == 1)
+        if ( wellGroupNames.size() == 1 )
         {
-            m_titleWellName = *(wellNames.begin());
+            m_titleWellGroupName = *( wellGroupNames.begin() );
         }
 
-        if (wellGroupNames.size() == 1)
+        if ( regions.size() == 1 )
         {
-            m_titleWellGroupName = *(wellGroupNames.begin());
+            m_titleRegion = std::to_string( *( regions.begin() ) );
         }
 
-        if (regions.size() == 1)
+        if ( blocks.size() == 1 )
         {
-            m_titleRegion = std::to_string(*(regions.begin()));
+            m_titleBlock = *( blocks.begin() );
         }
     }
 
-    auto summaryCases = setOfSummaryCases();
+    auto summaryCases  = setOfSummaryCases();
     auto ensembleCases = setOfEnsembleCases();
 
-    if (summaryCases.size() == 1 && ensembleCases.empty())
+    if ( summaryCases.size() == 1 && ensembleCases.empty() )
     {
-        auto summaryCase = *(summaryCases.begin());
+        auto summaryCase = *( summaryCases.begin() );
 
-        if (summaryCase)
+        if ( summaryCase )
         {
-            m_titleCaseName = summaryCase->caseName();
+            m_titleCaseName = summaryCase->shortName();
         }
     }
-    else if (ensembleCases.size() == 1 && summaryCases.empty())
+    else if ( ensembleCases.size() == 1 && summaryCases.empty() )
     {
-        auto ensembleCase = *(ensembleCases.begin());
-        if (ensembleCase)
+        auto ensembleCase = *( ensembleCases.begin() );
+        if ( ensembleCase )
         {
             m_titleCaseName = ensembleCase->name();
         }
@@ -243,30 +307,30 @@ void RimSummaryPlotNameHelper::extractPlotTitleSubStrings()
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 std::set<RimSummaryCase*> RimSummaryPlotNameHelper::setOfSummaryCases() const
 {
     std::set<RimSummaryCase*> summaryCases;
 
-    for (const auto& sumCase : m_summaryCases)
+    for ( const auto& sumCase : m_summaryCases )
     {
-        if (sumCase) summaryCases.insert(sumCase);
+        if ( sumCase ) summaryCases.insert( sumCase );
     }
 
     return summaryCases;
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 std::set<RimSummaryCaseCollection*> RimSummaryPlotNameHelper::setOfEnsembleCases() const
 {
     std::set<RimSummaryCaseCollection*> ensembleCases;
 
-    for (const auto& ensemble : m_ensembleCases)
+    for ( const auto& ensemble : m_ensembleCases )
     {
-        if (ensemble) ensembleCases.insert(ensemble);
+        if ( ensemble ) ensembleCases.insert( ensemble );
     }
 
     return ensembleCases;

@@ -30,6 +30,7 @@ class RimWellLogPlotCollection;
 class RimRftPlotCollection;
 class RimPltPlotCollection;
 class RimGridCrossPlotCollection;
+class RimMultiPlotCollection;
 class RimSummaryPlotCollection;
 class RimSummaryCrossPlotCollection;
 class RimSummaryPlot;
@@ -58,17 +59,21 @@ public:
     RimFlowPlotCollection*               flowPlotCollection();
     RimGridCrossPlotCollection*          gridCrossPlotCollection();
     RimSaturationPressurePlotCollection* saturationPressurePlotCollection();
+    RimMultiPlotCollection*              multiPlotCollection();
 
     void deleteAllContainedObjects();
     void updateCurrentTimeStepInPlots();
     void updatePlotsWithFormations();
     void updatePlotsWithCompletions();
     void deleteAllCachedData();
+    void ensureDefaultFlowPlotsAreCreated();
 
 private:
     // Overridden PDM methods
     caf::PdmFieldHandle* objectToggleField() override;
-    void fieldChangedByUi(const caf::PdmFieldHandle* changedField, const QVariant& oldValue, const QVariant& newValue) override;
+    void                 fieldChangedByUi( const caf::PdmFieldHandle* changedField,
+                                           const QVariant&            oldValue,
+                                           const QVariant&            newValue ) override;
 
 private:
     caf::PdmChildField<RimWellLogPlotCollection*>            m_wellLogPlotCollection;
@@ -79,6 +84,7 @@ private:
     caf::PdmChildField<RimFlowPlotCollection*>               m_flowPlotCollection;
     caf::PdmChildField<RimGridCrossPlotCollection*>          m_gridCrossPlotCollection;
     caf::PdmChildField<RimSaturationPressurePlotCollection*> m_saturationPressurePlotCollection;
+    caf::PdmChildField<RimMultiPlotCollection*>              m_multiPlotCollection;
 
     caf::PdmField<bool> m_show;
 };

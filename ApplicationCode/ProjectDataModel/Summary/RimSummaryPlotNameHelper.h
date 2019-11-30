@@ -43,36 +43,41 @@ public:
 
     void clear();
 
-    void appendAddresses(const std::vector<RifEclipseSummaryAddress>& addresses);
-    void setSummaryCases(const std::vector<RimSummaryCase*>& summaryCases);
-    void setEnsembleCases(const std::vector<RimSummaryCaseCollection*>& ensembleCases);
+    void appendAddresses( const std::vector<RifEclipseSummaryAddress>& addresses );
+    void setSummaryCases( const std::vector<RimSummaryCase*>& summaryCases );
+    void setEnsembleCases( const std::vector<RimSummaryCaseCollection*>& ensembleCases );
 
     QString plotTitle() const;
 
-    bool isQuantityInTitle() const;
+    bool isPlotDisplayingSingleQuantity() const;
     bool isWellNameInTitle() const;
     bool isWellGroupNameInTitle() const;
     bool isRegionInTitle() const;
     bool isCaseInTitle() const;
+    bool isBlockInTitle() const;
+    bool isSegmentInTitle() const;
+    bool isCompletionInTitle() const;
 
 private:
     void clearTitleSubStrings();
     void extractPlotTitleSubStrings();
 
-    std::set<RimSummaryCase*> setOfSummaryCases() const;
+    std::set<RimSummaryCase*>           setOfSummaryCases() const;
     std::set<RimSummaryCaseCollection*> setOfEnsembleCases() const;
-
 
 private:
     RiaSummaryCurveAnalyzer m_analyzer;
 
-    std::vector<caf::PdmPointer<RimSummaryCase>>            m_summaryCases;
-    std::vector<caf::PdmPointer<RimSummaryCaseCollection>>   m_ensembleCases;
+    std::vector<caf::PdmPointer<RimSummaryCase>>           m_summaryCases;
+    std::vector<caf::PdmPointer<RimSummaryCaseCollection>> m_ensembleCases;
 
     std::string m_titleQuantity;
     std::string m_titleWellName;
     std::string m_titleWellGroupName;
     std::string m_titleRegion;
+    std::string m_titleBlock;
+    std::string m_titleSegment;
+    std::string m_titleCompletion;
 
     QString m_titleCaseName;
 };

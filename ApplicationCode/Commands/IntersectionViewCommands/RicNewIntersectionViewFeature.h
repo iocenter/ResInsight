@@ -22,7 +22,7 @@
 
 #include <set>
 
-class RimIntersection;
+class RimExtrudedCurveIntersection;
 
 //==================================================================================================
 ///
@@ -33,9 +33,9 @@ class RicNewIntersectionViewFeature : public caf::CmdFeature
 
 protected:
     bool isCommandEnabled() override;
-    void onActionTriggered(bool isChecked) override;
-    void setupActionLook(QAction* actionToSetup) override;
+    void onActionTriggered( bool isChecked ) override;
+    void setupActionLook( QAction* actionToSetup ) override;
 
 private:
-    static std::set<RimIntersection*> selectedIntersections();
+    static std::set<RimExtrudedCurveIntersection*> selectedIntersections();
 };

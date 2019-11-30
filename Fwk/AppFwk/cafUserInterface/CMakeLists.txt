@@ -15,6 +15,7 @@ set (MOC_HEADER_FILES
     cafPdmUiColorEditor.h
     cafPdmUiComboBoxEditor.h
     cafPdmUiDateEditor.h
+	cafPdmUiTimeEditor.h
     cafPdmUiDefaultObjectEditor.h
     cafPdmUiDoubleSliderEditor.h
     cafPdmUiFilePathEditor.h
@@ -44,6 +45,7 @@ set (MOC_HEADER_FILES
     cafPdmUniqueIdValidator.h
     cafPdmDoubleStringValidator.h
     cafPdmUiPickableLineEditor.h
+    cafPdmUiLabelEditor.h
 )
 
 if (CEE_USE_QT5)
@@ -71,6 +73,8 @@ set( PROJECT_FILES
     cafPdmUiComboBoxEditor.h
     cafPdmUiDateEditor.cpp
     cafPdmUiDateEditor.h
+	cafPdmUiTimeEditor.cpp
+    cafPdmUiTimeEditor.h   
     cafPdmUiDoubleSliderEditor.cpp
     cafPdmUiDoubleSliderEditor.h
     cafPdmUiDragDropInterface.h
@@ -96,6 +100,8 @@ set( PROJECT_FILES
     cafPdmUiTreeSelectionQModel.cpp
     cafPdmUiFieldEditorHelper.h
     cafPdmUiFieldEditorHelper.cpp
+    cafPdmUiLabelEditor.cpp
+
 
     # object editors
     cafPdmUiDefaultObjectEditor.cpp
@@ -155,6 +161,10 @@ set( PROJECT_FILES
     cafPdmUiPickableLineEditor.cpp
 	cafStyleSheetTools.h
 	cafStyleSheetTools.cpp
+    cafPdmUiTabbedPropertyViewDialog.h
+    cafPdmUiTabbedPropertyViewDialog.cpp
+	cafUiStyleSheet.h
+	cafUiStyleSheet.cpp
 )
 
 add_library( ${PROJECT_NAME}

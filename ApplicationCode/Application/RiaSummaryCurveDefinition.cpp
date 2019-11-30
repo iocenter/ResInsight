@@ -1,17 +1,17 @@
 /////////////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2017     Statoil ASA
-// 
+//
 //  ResInsight is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation, either version 3 of the License, or
 //  (at your option) any later version.
-// 
+//
 //  ResInsight is distributed in the hope that it will be useful, but WITHOUT ANY
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or
 //  FITNESS FOR A PARTICULAR PURPOSE.
-// 
-//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html> 
+//
+//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html>
 //  for more details.
 //
 /////////////////////////////////////////////////////////////////////////////////
@@ -26,27 +26,26 @@
 ///
 //--------------------------------------------------------------------------------------------------
 RiaSummaryCurveDefinition::RiaSummaryCurveDefinition()
-: m_summaryCase(nullptr)
-, m_ensemble(nullptr)
+    : m_summaryCase( nullptr )
+    , m_ensemble( nullptr )
 
 {
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-RiaSummaryCurveDefinition::RiaSummaryCurveDefinition(RimSummaryCase* summaryCase,
-                                                     const RifEclipseSummaryAddress& summaryAddress,
-                                                     RimSummaryCaseCollection* ensemble)
-    : m_summaryCase(summaryCase)
-    , m_ensemble(ensemble)
-    , m_summaryAddress(summaryAddress)
+RiaSummaryCurveDefinition::RiaSummaryCurveDefinition( RimSummaryCase*                 summaryCase,
+                                                      const RifEclipseSummaryAddress& summaryAddress,
+                                                      RimSummaryCaseCollection*       ensemble )
+    : m_summaryCase( summaryCase )
+    , m_ensemble( ensemble )
+    , m_summaryAddress( summaryAddress )
 {
-  
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimSummaryCase* RiaSummaryCurveDefinition::summaryCase() const
 {
@@ -54,7 +53,7 @@ RimSummaryCase* RiaSummaryCurveDefinition::summaryCase() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimSummaryCaseCollection* RiaSummaryCurveDefinition::ensemble() const
 {
@@ -62,7 +61,7 @@ RimSummaryCaseCollection* RiaSummaryCurveDefinition::ensemble() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 const RifEclipseSummaryAddress& RiaSummaryCurveDefinition::summaryAddress() const
 {
@@ -70,117 +69,129 @@ const RifEclipseSummaryAddress& RiaSummaryCurveDefinition::summaryAddress() cons
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 bool RiaSummaryCurveDefinition::isEnsembleCurve() const
 {
     return m_ensemble != nullptr;
 }
 
-
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RiaSummaryCurveDefinition::resultValues(const RiaSummaryCurveDefinition& curveDefinition, std::vector<double>* values)
+void RiaSummaryCurveDefinition::resultValues( const RiaSummaryCurveDefinition& curveDefinition,
+                                              std::vector<double>*             values )
 {
-    CVF_ASSERT(values);
+    CVF_ASSERT( values );
 
-    if (!curveDefinition.summaryAddress().isValid()) return;
-    if (!curveDefinition.summaryCase()) return;
-    
+    if ( !curveDefinition.summaryAddress().isValid() ) return;
+    if ( !curveDefinition.summaryCase() ) return;
+
     RifSummaryReaderInterface* reader = curveDefinition.summaryCase()->summaryReader();
-    if (!reader) return;
+    if ( !reader ) return;
 
-    reader->values(curveDefinition.summaryAddress(), values);
+    reader->values( curveDefinition.summaryAddress(), values );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-const std::vector<time_t>& RiaSummaryCurveDefinition::timeSteps(const RiaSummaryCurveDefinition& curveDefinition)
+const std::vector<time_t>& RiaSummaryCurveDefinition::timeSteps( const RiaSummaryCurveDefinition& curveDefinition )
 {
     static std::vector<time_t> dummy;
 
-    if (!curveDefinition.summaryAddress().isValid()) return dummy;
-    if (!curveDefinition.summaryCase()) return dummy;
+    if ( !curveDefinition.summaryAddress().isValid() ) return dummy;
+    if ( !curveDefinition.summaryCase() ) return dummy;
 
     RifSummaryReaderInterface* reader = curveDefinition.summaryCase()->summaryReader();
-    if (!reader) return dummy;
+    if ( !reader ) return dummy;
 
-    return reader->timeSteps(curveDefinition.summaryAddress());
+    return reader->timeSteps( curveDefinition.summaryAddress() );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 QString RiaSummaryCurveDefinition::curveDefinitionText() const
 {
     QString caseName;
-    if (summaryCase() ) caseName = summaryCase()->caseName();
-    else if (ensemble()) caseName = ensemble()->name();
-    
-    return RiaSummaryCurveDefinition::curveDefinitionText(caseName, summaryAddress());
+    if ( summaryCase() )
+        caseName = summaryCase()->caseName();
+    else if ( ensemble() )
+        caseName = ensemble()->name();
+
+    return RiaSummaryCurveDefinition::curveDefinitionText( caseName, summaryAddress() );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-QString RiaSummaryCurveDefinition::curveDefinitionText(const QString& caseName, const RifEclipseSummaryAddress& summaryAddress)
+QString RiaSummaryCurveDefinition::curveDefinitionText( const QString&                  caseName,
+                                                        const RifEclipseSummaryAddress& summaryAddress )
 {
     QString txt;
 
     txt += caseName;
     txt += ", ";
 
-    txt += QString::fromStdString(summaryAddress.uiText());
+    txt += QString::fromStdString( summaryAddress.uiText() );
 
     return txt;
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-bool RiaSummaryCurveDefinition::operator<(const RiaSummaryCurveDefinition& other) const
+bool RiaSummaryCurveDefinition::operator<( const RiaSummaryCurveDefinition& other ) const
 {
+    if ( m_ensemble != other.ensemble() )
     {
         QString ensembleName;
         QString otherEnsembleName;
 
-        if (m_ensemble)
+        if ( m_ensemble )
         {
             ensembleName = m_ensemble->name();
         }
 
-        if (other.ensemble())
+        if ( other.ensemble() )
         {
             otherEnsembleName = other.ensemble()->name();
         }
 
-        if (ensembleName != otherEnsembleName)
+        // First check if names are different to ensure stable alphabetic sort
+        if ( ensembleName != otherEnsembleName )
         {
             return ensembleName < otherEnsembleName;
         }
+
+        // Use pointer address, sorting will be be unstable
+        return m_ensemble < other.ensemble();
     }
 
+    if ( m_summaryCase != other.summaryCase() )
     {
         QString summaryCaseName;
         QString otherSummaryCaseName;
 
-        if (m_summaryCase)
+        if ( m_summaryCase )
         {
             summaryCaseName = m_summaryCase->caseName();
         }
-        if (other.summaryCase())
+        if ( other.summaryCase() )
         {
             otherSummaryCaseName = other.summaryCase()->caseName();
         }
 
-        if (summaryCaseName != otherSummaryCaseName)
+        // First check if names are different to ensure stable alphabetic sort
+        if ( summaryCaseName != otherSummaryCaseName )
         {
             return summaryCaseName < otherSummaryCaseName;
         }
+
+        // Use pointer address, sorting will be be unstable
+        return m_summaryCase < other.summaryCase();
     }
 
-    return (m_summaryAddress < other.summaryAddress());
+    return ( m_summaryAddress < other.summaryAddress() );
 }
-

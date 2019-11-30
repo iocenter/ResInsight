@@ -81,20 +81,11 @@ bool caf::CeetronPlusNavigation::handleInputEvent(QInputEvent* inputEvent)
 
             if (me->button() == Qt::RightButton && isRotationEnabled())
             {
-                cvf::HitItemCollection hic;
-                bool hitSomething = m_viewer->rayPick( me->x(), me->y(), &hic);
-
-                if (hitSomething)
-                { 
-                    cvf::Vec3d pointOfInterest = hic.firstItem()->intersectionPoint();
-                    this->setPointOfInterest(pointOfInterest);
-                }
-                else
-                {
-                    initializeRotationCenter();
-                }
+                this->pickAndSetPointOfInterest(me->x(), me->y());
 
                 m_trackball->startNavigation(cvf::ManipulatorTrackball::ROTATE, translatedMousePosX, translatedMousePosY);
+                m_roationSensitivityCalculator.init(me);
+
                 m_isNavigating = true;
                 m_hasMovedMouseDuringNavigation = false;
                 isEventHandled = true;
@@ -174,7 +165,11 @@ bool caf::CeetronPlusNavigation::handleInputEvent(QInputEvent* inputEvent)
                     }
                     else
                     {
+                        double sensitivity = m_roationSensitivityCalculator.calculateSensitivity(me);
+
+                        m_trackball->setRotationSensitivity(sensitivity);
                         bool needRedraw = m_trackball->updateNavigation(translatedMousePosX, translatedMousePosY);
+
                         if (needRedraw)
                         {
                             m_viewer->navigationPolicyUpdate();

@@ -2,32 +2,34 @@
 //
 //  Copyright (C) Statoil ASA
 //  Copyright (C) Ceetron Solutions AS
-// 
+//
 //  ResInsight is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation, either version 3 of the License, or
 //  (at your option) any later version.
-// 
+//
 //  ResInsight is distributed in the hope that it will be useful, but WITHOUT ANY
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or
 //  FITNESS FOR A PARTICULAR PURPOSE.
-// 
-//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html> 
+//
+//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html>
 //  for more details.
 //
 /////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
+#include "RiaDefines.h"
+#include "RigWbsParameter.h"
 #include "RigWellLogExtractor.h"
 
 #include "RigFemResultPosEnum.h"
 
+#include "cafAppEnum.h"
 #include "cafTensor3.h"
 
-#include "cvfBase.h"
-#include "cvfObject.h"
 #include "cvfMath.h"
+#include "cvfObject.h"
 #include "cvfStructGrid.h"
 #include "cvfVector3.h"
 
@@ -38,26 +40,42 @@ class RigFemResultAddress;
 class RigGeoMechCaseData;
 class RigWellPath;
 
-namespace cvf {
-    class BoundingBox;
+namespace cvf
+{
+class BoundingBox;
 }
 
 //==================================================================================================
-/// 
+///
 //==================================================================================================
 class RigGeoMechWellLogExtractor : public RigWellLogExtractor
 {
 public:
-    RigGeoMechWellLogExtractor(RigGeoMechCaseData* aCase, const RigWellPath* wellpath, const std::string& wellCaseErrorMsgName);
+    using WbsParameterSource     = RigWbsParameter::Source;
+    using WbsParameterSourceEnum = RigWbsParameter::SourceEnum;
 
-    void                         curveData(const RigFemResultAddress& resAddr, int frameIndex, std::vector<double>* values );
-    const RigGeoMechCaseData*    caseData();
-    void                         setRkbDiff(double rkbDiff);
+public:
+    RigGeoMechWellLogExtractor( RigGeoMechCaseData* aCase,
+                                const RigWellPath*  wellpath,
+                                const std::string&  wellCaseErrorMsgName );
 
-    void                         setWellLogMdAndMudWeightKgPerM3(const std::vector<std::pair<double, double>>& mudWeightKgPerM3);
-    void                         setWellLogMdAndUcsBar(const std::vector<std::pair<double, double>>& ucsValues);
-    void                         setWellLogMdAndPoissonRatio(const std::vector<std::pair<double, double>>& poissonRatio);
+    void performCurveDataSmoothing( int                  frameIndex,
+                                    std::vector<double>* mds,
+                                    std::vector<double>* tvds,
+                                    std::vector<double>* values,
+                                    const double         smoothingTreshold );
 
+    void curveData( const RigFemResultAddress& resAddr, int frameIndex, std::vector<double>* values );
+    const RigGeoMechCaseData* caseData();
+    void                      setRkbDiff( double rkbDiff );
+
+    void setWbsLasValues( const RigWbsParameter& parameter, const std::vector<std::pair<double, double>>& values );
+    void setWbsParametersSource( RigWbsParameter parameter, WbsParameterSource source );
+    void setWbsUserDefinedValue( RigWbsParameter parameter, double userDefinedValue );
+
+    std::vector<double> porePressureSourceRegions( int frameIndex );
+    std::vector<double> poissonSourceRegions( int frameIndex );
+    std::vector<double> ucsSourceRegions( int frameIndex );
 
 private:
     enum WellPathTangentCalculation
@@ -66,41 +84,88 @@ private:
         TangentConstantWithinCell
     };
 
-    float                        calculatePorePressureInSegment(int64_t intersectionIdx, float averageSegmentPorePressureBar, double hydroStaticPorePressureBar, double effectiveDepthMeters, const std::vector<float>& poreElementPressuresPascal) const;
-    float                        calculatePoissonRatio(int64_t intersectionIdx, const std::vector<float>& poissonRatios) const;
-    float                        calculateUcs(int64_t intersectionIdx, const std::vector<float>& ucsValuesPascal) const;
+    std::vector<WbsParameterSource> calculateWbsParameterForAllSegments( const RigWbsParameter& parameter,
+                                                                         WbsParameterSource     primarySource,
+                                                                         int                    frameIndex,
+                                                                         std::vector<double>*   outputValues );
+    std::vector<WbsParameterSource> calculateWbsParameterForAllSegments( const RigWbsParameter& parameter,
+                                                                         int                    frameIndex,
+                                                                         std::vector<double>*   outputValues );
+    std::vector<WbsParameterSource> calculateWbsParametersForAllSegments( const RigFemResultAddress& resAddr,
+                                                                          int                        frameIndex,
+                                                                          std::vector<double>*       values );
 
-    void                         wellPathAngles(const RigFemResultAddress& resAddr, std::vector<double>* values);
-    void                         wellPathScaledCurveData(const RigFemResultAddress& resAddr, int frameIndex, std::vector<double>* values);
+    void wellPathAngles( const RigFemResultAddress& resAddr, std::vector<double>* values );
+    std::vector<WbsParameterSource>
+         wellPathScaledCurveData( const RigFemResultAddress& resAddr, int frameIndex, std::vector<double>* values );
+    void wellBoreWallCurveData( const RigFemResultAddress& resAddr, int frameIndex, std::vector<double>* values );
 
+    void wellBoreFGShale( int frameIndex, std::vector<double>* values );
+    void wellBoreSH_MatthewsKelly( int frameIndex, std::vector<double>* values );
 
-    void                         wellBoreWallCurveData(const RigFemResultAddress& resAddr, int frameIndex, std::vector<double>* values);
+    template <typename T>
+    T      interpolateGridResultValue( RigFemResultPosEnum   resultPosType,
+                                       const std::vector<T>& gridResultValues,
+                                       int64_t               intersectionIdx ) const;
+    size_t gridResultIndexFace( size_t elementIdx, cvf::StructGridInterface::FaceType cellFace, int faceLocalNodeIdx ) const;
+    void                calculateIntersection();
+    std::vector<size_t> findCloseCells( const cvf::BoundingBox& bb );
+    cvf::Vec3d          calculateLengthInCell( size_t            cellIndex,
+                                               const cvf::Vec3d& startPoint,
+                                               const cvf::Vec3d& endPoint ) const override;
+    cvf::Vec3d calculateWellPathTangent( int64_t intersectionIdx, WellPathTangentCalculation calculationType ) const;
+    static caf::Ten3d transformTensorToWellPathOrientation( const cvf::Vec3d& wellPathTangent,
+                                                            const caf::Ten3d& wellPathTensor );
 
-    template<typename T>
-    T                            interpolateGridResultValue(RigFemResultPosEnum resultPosType, const std::vector<T>& gridResultValues, int64_t intersectionIdx, bool averageNodeElementResults) const;
-    size_t                       gridResultIndexFace(size_t elementIdx, cvf::StructGridInterface::FaceType cellFace, int faceLocalNodeIdx) const;
-    void                         calculateIntersection();
-    std::vector<size_t>          findCloseCells(const cvf::BoundingBox& bb);
-    cvf::Vec3d           calculateLengthInCell(size_t cellIndex, 
-                                                       const cvf::Vec3d& startPoint, 
-                                                       const cvf::Vec3d& endPoint) const override;
-    cvf::Vec3d                   calculateWellPathTangent(int64_t intersectionIdx, WellPathTangentCalculation calculationType) const;
-    static caf::Ten3d            transformTensorToWellPathOrientation(const cvf::Vec3d& wellPathTangent,
-                                                                      const caf::Ten3d& wellPathTensor);
+    cvf::Vec3f cellCentroid( size_t intersectionIdx ) const;
+    double     getWellLogSegmentValue( size_t                                        intersectionIdx,
+                                       const std::vector<std::pair<double, double>>& wellLogValues ) const;
 
-    cvf::Vec3f                   cellCentroid(size_t intersectionIdx) const;
-    double                       getWellLogSegmentValue(size_t intersectionIdx, const std::vector<std::pair<double, double>>& wellLogValues) const;
+    template <typename T>
+    bool          averageIntersectionValuesToSegmentValue( size_t                intersectionIdx,
+                                                           const std::vector<T>& intersectionValues,
+                                                           const T&              invalidValue,
+                                                           T*                    averagedSegmentValue ) const;
+    static double pascalToBar( double pascalValue );
 
-    template<typename T>
-    bool                         averageIntersectionValuesToSegmentValue(size_t intersectionIdx, const std::vector<T>& intersectionValues, const T& invalidValue, T* averagedSegmentValue) const;
-    static double                pascalToBar(double pascalValue);
+    template <typename T>
+    std::vector<T> interpolateInterfaceValues( RigFemResultAddress   nativeAddr,
+                                               int                   frameIndex,
+                                               const std::vector<T>& unscaledResultValues );
+
+    static void initializeResultValues( std::vector<float>& resultValues, size_t resultCount );
+    static void initializeResultValues( std::vector<caf::Ten3d>& resultValues, size_t resultCount );
+
+    void filterShortSegments( std::vector<double>*               xValues,
+                              std::vector<double>*               yValues,
+                              std::vector<unsigned char>*        filterSegments,
+                              std::vector<std::vector<double>*>& vectorOfDependentValues );
+    void filterColinearSegments( std::vector<double>*               xValues,
+                                 std::vector<double>*               yValues,
+                                 std::vector<unsigned char>*        filterSegments,
+                                 std::vector<std::vector<double>*>& vectorOfDependentValues );
+    void smoothSegments( std::vector<double>*              mds,
+                         std::vector<double>*              tvds,
+                         std::vector<double>*              values,
+                         const std::vector<double>&        interfaceShValues,
+                         const std::vector<unsigned char>& smoothSegments,
+                         const double                      smoothingThreshold );
+
+    std::vector<unsigned char> determineFilteringOrSmoothing( const std::vector<double>& porePressures );
+
+    double hydroStaticPorePressureForSegment( size_t intersectionIdx ) const;
+
+    static bool isValid( double value );
+    static bool isValid( float value );
+
 private:
     cvf::ref<RigGeoMechCaseData> m_caseData;
     double                       m_rkbDiff;
-    std::vector<std::pair<double, double>> m_wellLogMdAndMudWeightKgPerM3;
-    std::vector<std::pair<double, double>> m_wellLogMdAndUcsBar;
-    std::vector<std::pair<double, double>> m_wellLogMdAndPoissonRatios;
 
-    static const double          UNIT_WEIGHT_OF_WATER;
+    std::map<RigWbsParameter, std::vector<std::pair<double, double>>> m_lasFileValues;
+
+    std::map<RigWbsParameter, WbsParameterSource> m_parameterSources;
+    std::map<RigWbsParameter, double>             m_userDefinedValues;
+
+    static const double UNIT_WEIGHT_OF_WATER;
 };
-

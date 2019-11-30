@@ -1,17 +1,17 @@
 /////////////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (C) 2018-     Equinor ASA
-// 
+//
 //  ResInsight is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation, either version 3 of the License, or
 //  (at your option) any later version.
-// 
+//
 //  ResInsight is distributed in the hope that it will be useful, but WITHOUT ANY
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or
 //  FITNESS FOR A PARTICULAR PURPOSE.
-// 
-//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html> 
+//
+//  See the GNU General Public License at <http://www.gnu.org/licenses/gpl.html>
 //  for more details.
 //
 /////////////////////////////////////////////////////////////////////////////////
@@ -23,8 +23,12 @@
 #include "Rim3dOverlayInfoConfig.h"
 #include "RimAnnotationInViewCollection.h"
 #include "RimCellRangeFilterCollection.h"
+#include "RimEclipseCase.h"
+#include "RimEclipseResultDefinition.h"
+#include "RimGeoMechResultDefinition.h"
 #include "RimGridCollection.h"
 #include "RimIntersectionCollection.h"
+#include "RimIntersectionResultsDefinitionCollection.h"
 #include "RimProject.h"
 #include "RimPropertyFilterCollection.h"
 #include "RimTextAnnotation.h"
@@ -32,57 +36,81 @@
 #include "RimViewLinker.h"
 #include "RimViewLinkerCollection.h"
 #include "RimViewNameConfig.h"
+#include "RimWellMeasurementInViewCollection.h"
 
 #include "Riu3DMainWindowTools.h"
+#include "Riu3dSelectionManager.h"
 #include "RiuMainWindow.h"
 
+#include "RivSingleCellPartGenerator.h"
+
 #include "cvfModel.h"
+#include "cvfPart.h"
 #include "cvfScene.h"
 
 #include <set>
 
-
-CAF_PDM_XML_ABSTRACT_SOURCE_INIT(RimGridView, "GenericGridView"); // Do not use. Abstract class 
+CAF_PDM_XML_ABSTRACT_SOURCE_INIT( RimGridView, "GenericGridView" ); // Do not use. Abstract class
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimGridView::RimGridView()
 {
-
-    CAF_PDM_InitFieldNoDefault(&m_rangeFilterCollection, "RangeFilters", "Range Filters", "", "", "");
-    m_rangeFilterCollection.uiCapability()->setUiHidden(true);
+    CAF_PDM_InitFieldNoDefault( &m_rangeFilterCollection, "RangeFilters", "Range Filters", "", "", "" );
+    m_rangeFilterCollection.uiCapability()->setUiHidden( true );
     m_rangeFilterCollection = new RimCellRangeFilterCollection();
 
-    CAF_PDM_InitFieldNoDefault(&m_overrideRangeFilterCollection, "RangeFiltersControlled", "Range Filters (controlled)", "", "", "");
-    m_overrideRangeFilterCollection.uiCapability()->setUiHidden(true);
+    CAF_PDM_InitFieldNoDefault( &m_overrideRangeFilterCollection,
+                                "RangeFiltersControlled",
+                                "Range Filters (controlled)",
+                                "",
+                                "",
+                                "" );
+    m_overrideRangeFilterCollection.uiCapability()->setUiHidden( true );
     m_overrideRangeFilterCollection.xmlCapability()->disableIO();
 
-    CAF_PDM_InitFieldNoDefault(&m_crossSectionCollection, "CrossSections", "Intersections", "", "", "");
-    m_crossSectionCollection.uiCapability()->setUiHidden(true);
-    m_crossSectionCollection = new RimIntersectionCollection();
+    CAF_PDM_InitFieldNoDefault( &m_intersectionCollection, "CrossSections", "Intersections", "", "", "" );
+    m_intersectionCollection.uiCapability()->setUiHidden( true );
+    m_intersectionCollection = new RimIntersectionCollection();
 
-    CAF_PDM_InitFieldNoDefault(&m_gridCollection, "GridCollection", "GridCollection", "", "", "");
-    m_gridCollection.uiCapability()->setUiHidden(true);
+    CAF_PDM_InitFieldNoDefault( &m_intersectionResultDefCollection,
+                                "IntersectionResultDefColl",
+                                "Separate Intersection Results",
+                                "",
+                                "",
+                                "" );
+    m_intersectionResultDefCollection.uiCapability()->setUiTreeHidden( true );
+    m_intersectionResultDefCollection = new RimIntersectionResultsDefinitionCollection;
+
+    CAF_PDM_InitFieldNoDefault( &m_gridCollection, "GridCollection", "GridCollection", "", "", "" );
+    m_gridCollection.uiCapability()->setUiHidden( true );
     m_gridCollection = new RimGridCollection();
 
     m_previousGridModeMeshLinesWasFaults = false;
 
-    CAF_PDM_InitFieldNoDefault(&m_overlayInfoConfig, "OverlayInfoConfig", "Info Box", "", "", "");
+    CAF_PDM_InitFieldNoDefault( &m_overlayInfoConfig, "OverlayInfoConfig", "Info Box", "", "", "" );
     m_overlayInfoConfig = new Rim3dOverlayInfoConfig();
-    m_overlayInfoConfig->setReservoirView(this);
-    m_overlayInfoConfig.uiCapability()->setUiHidden(true);
+    m_overlayInfoConfig->setReservoirView( this );
+    m_overlayInfoConfig.uiCapability()->setUiHidden( true );
+
+    CAF_PDM_InitFieldNoDefault( &m_wellMeasurementCollection, "WellMeasurements", "Well Measurements", "", "", "" );
+    m_wellMeasurementCollection = new RimWellMeasurementInViewCollection;
+    m_wellMeasurementCollection.uiCapability()->setUiHidden( true );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-RimGridView::~RimGridView(void)
+RimGridView::~RimGridView( void )
 {
     RimProject* proj = RiaApplication::instance()->project();
 
-    if (proj && this->isMasterView())
+    if ( proj && this->isMasterView() )
     {
+        RimViewLinker* viewLinker = this->assosiatedViewLinker();
+        viewLinker->setMasterView( nullptr );
+
         delete proj->viewLinkerCollection->viewLinker();
         proj->viewLinkerCollection->viewLinker = nullptr;
 
@@ -90,10 +118,10 @@ RimGridView::~RimGridView(void)
     }
 
     RimViewController* vController = this->viewController();
-    if (proj && vController)
+    if ( proj && vController )
     {
-        vController->setManagedView(nullptr);
-        vController->ownerViewLinker()->removeViewController(vController);
+        vController->setManagedView( nullptr );
+        vController->ownerViewLinker()->removeViewController( vController );
         delete vController;
 
         proj->uiCapability()->updateConnectedEditors();
@@ -101,48 +129,65 @@ RimGridView::~RimGridView(void)
 
     delete this->m_overlayInfoConfig();
 
+    delete m_wellMeasurementCollection;
     delete m_rangeFilterCollection;
     delete m_overrideRangeFilterCollection;
-    delete m_crossSectionCollection;
+    delete m_intersectionCollection;
     delete m_gridCollection;
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RimGridView::showGridCells(bool enableGridCells)
+void RimGridView::showGridCells( bool enableGridCells )
 {
-    m_gridCollection->setActive(enableGridCells);
+    m_gridCollection->setActive( enableGridCells );
 
-    createDisplayModel();
+    onCreateDisplayModel();
     updateDisplayModelVisibility();
     RiuMainWindow::instance()->refreshDrawStyleActions();
     RiuMainWindow::instance()->refreshAnimationActions();
 
     m_gridCollection->updateConnectedEditors();
-    m_gridCollection->updateUiIconFromState(enableGridCells);
+    m_gridCollection->updateUiIconFromState( enableGridCells );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 cvf::ref<cvf::UByteArray> RimGridView::currentTotalCellVisibility()
 {
-    if (m_currentReservoirCellVisibility.isNull())
+    if ( m_currentReservoirCellVisibility.isNull() )
     {
         m_currentReservoirCellVisibility = new cvf::UByteArray;
-        this->calculateCurrentTotalCellVisibility(m_currentReservoirCellVisibility.p(), m_currentTimeStep());
+        this->calculateCurrentTotalCellVisibility( m_currentReservoirCellVisibility.p(), m_currentTimeStep() );
     }
 
     return m_currentReservoirCellVisibility;
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-RimIntersectionCollection* RimGridView::crossSectionCollection() const
+RimIntersectionCollection* RimGridView::intersectionCollection() const
 {
-    return m_crossSectionCollection();
+    return m_intersectionCollection();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+RimWellMeasurementInViewCollection* RimGridView::measurementCollection() const
+{
+    return m_wellMeasurementCollection;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+RimIntersectionResultsDefinitionCollection* RimGridView::separateIntersectionResultsCollection() const
+{
+    return m_intersectionResultDefCollection;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -154,11 +199,11 @@ void RimGridView::rangeFiltersUpdated()
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimCellRangeFilterCollection* RimGridView::rangeFilterCollection()
 {
-    if (this->viewController() && this->viewController()->isRangeFiltersControlled() && m_overrideRangeFilterCollection)
+    if ( this->viewController() && this->viewController()->isRangeFiltersControlled() && m_overrideRangeFilterCollection )
     {
         return m_overrideRangeFilterCollection;
     }
@@ -169,11 +214,11 @@ RimCellRangeFilterCollection* RimGridView::rangeFilterCollection()
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 const RimCellRangeFilterCollection* RimGridView::rangeFilterCollection() const
 {
-    if (this->viewController() && this->viewController()->isRangeFiltersControlled() && m_overrideRangeFilterCollection)
+    if ( this->viewController() && this->viewController()->isRangeFiltersControlled() && m_overrideRangeFilterCollection )
     {
         return m_overrideRangeFilterCollection;
     }
@@ -192,7 +237,7 @@ RimAnnotationInViewCollection* RimGridView::annotationCollection() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 bool RimGridView::hasOverridenRangeFilterCollection()
 {
@@ -200,42 +245,42 @@ bool RimGridView::hasOverridenRangeFilterCollection()
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RimGridView::setOverrideRangeFilterCollection(RimCellRangeFilterCollection* rfc)
+void RimGridView::setOverrideRangeFilterCollection( RimCellRangeFilterCollection* rfc )
 {
-    if (m_overrideRangeFilterCollection()) delete m_overrideRangeFilterCollection();
+    if ( m_overrideRangeFilterCollection() ) delete m_overrideRangeFilterCollection();
 
     m_overrideRangeFilterCollection = rfc;
     // Maintain a link in the active-selection
-    if (m_overrideRangeFilterCollection)
+    if ( m_overrideRangeFilterCollection )
     {
         m_rangeFilterCollection->isActive = m_overrideRangeFilterCollection->isActive;
         m_rangeFilterCollection()->uiCapability()->updateConnectedEditors();
     }
 
-    this->scheduleGeometryRegen(RANGE_FILTERED);
-    this->scheduleGeometryRegen(RANGE_FILTERED_INACTIVE);
+    this->scheduleGeometryRegen( RANGE_FILTERED );
+    this->scheduleGeometryRegen( RANGE_FILTERED_INACTIVE );
 
     this->scheduleCreateDisplayModelAndRedraw();
 }
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 void RimGridView::replaceRangeFilterCollectionWithOverride()
 {
     RimCellRangeFilterCollection* overrideRfc = m_overrideRangeFilterCollection;
-    CVF_ASSERT(overrideRfc);
+    CVF_ASSERT( overrideRfc );
 
     RimCellRangeFilterCollection* currentRfc = m_rangeFilterCollection;
-    if (currentRfc)
+    if ( currentRfc )
     {
         delete currentRfc;
     }
 
     // Must call removeChildObject() to make sure the object has no parent
     // No parent is required when assigning a object into a field
-    m_overrideRangeFilterCollection.removeChildObject(overrideRfc);
+    m_overrideRangeFilterCollection.removeChildObject( overrideRfc );
 
     m_rangeFilterCollection = overrideRfc;
 
@@ -243,16 +288,16 @@ void RimGridView::replaceRangeFilterCollectionWithOverride()
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimViewController* RimGridView::viewController() const
 {
     std::vector<RimViewController*> objects;
-    this->objectsWithReferringPtrFieldsOfType(objects);
+    this->objectsWithReferringPtrFieldsOfType( objects );
 
-    for (auto v : objects)
+    for ( auto v : objects )
     {
-        if (v)
+        if ( v )
         {
             return v;
         }
@@ -262,15 +307,15 @@ RimViewController* RimGridView::viewController() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimViewLinker* RimGridView::assosiatedViewLinker() const
 {
     RimViewLinker* viewLinker = this->viewLinkerIfMasterView();
-    if (!viewLinker)
+    if ( !viewLinker )
     {
         RimViewController* viewController = this->viewController();
-        if (viewController)
+        if ( viewController )
         {
             viewLinker = viewController->ownerViewLinker();
         }
@@ -280,7 +325,7 @@ RimViewLinker* RimGridView::assosiatedViewLinker() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 bool RimGridView::isGridVisualizationMode() const
 {
@@ -290,16 +335,16 @@ bool RimGridView::isGridVisualizationMode() const
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-bool RimGridView::hasCustomFontSizes(RiaDefines::FontSettingType fontSettingType, int defaultFontSize) const
+bool RimGridView::hasCustomFontSizes( RiaDefines::FontSettingType fontSettingType, int defaultFontSize ) const
 {
-    bool hasCustomFonts = Rim3dView::hasCustomFontSizes(fontSettingType, defaultFontSize);
-    if (fontSettingType == RiaDefines::ANNOTATION_FONT)
+    bool hasCustomFonts = Rim3dView::hasCustomFontSizes( fontSettingType, defaultFontSize );
+    if ( fontSettingType == RiaDefines::ANNOTATION_FONT )
     {
-        auto                   annotations         = annotationCollection();
-        if (annotations)
+        auto annotations = annotationCollection();
+        if ( annotations )
         {
-            RiaFontCache::FontSize defaultFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize(defaultFontSize);
-            hasCustomFonts = annotations->hasTextAnnotationsWithCustomFontSize(defaultFontSizeEnum) || hasCustomFonts;
+            RiaFontCache::FontSize defaultFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize( defaultFontSize );
+            hasCustomFonts = annotations->hasTextAnnotationsWithCustomFontSize( defaultFontSizeEnum ) || hasCustomFonts;
         }
     }
     return hasCustomFonts;
@@ -308,24 +353,27 @@ bool RimGridView::hasCustomFontSizes(RiaDefines::FontSettingType fontSettingType
 //--------------------------------------------------------------------------------------------------
 ///
 //--------------------------------------------------------------------------------------------------
-bool RimGridView::applyFontSize(RiaDefines::FontSettingType fontSettingType,
-                                int                         oldFontSize,
-                                int                         fontSize,
-                                bool                        forceChange /*= false*/)
+bool RimGridView::applyFontSize( RiaDefines::FontSettingType fontSettingType,
+                                 int                         oldFontSize,
+                                 int                         fontSize,
+                                 bool                        forceChange /*= false*/ )
 {
-    bool anyChange = Rim3dView::applyFontSize(fontSettingType, oldFontSize, fontSize, forceChange);
-    if (fontSettingType == RiaDefines::ANNOTATION_FONT)
+    bool anyChange = Rim3dView::applyFontSize( fontSettingType, oldFontSize, fontSize, forceChange );
+    if ( fontSettingType == RiaDefines::ANNOTATION_FONT )
     {
-        auto                   annotations = annotationCollection();
-        if (annotations)
+        auto annotations = annotationCollection();
+        if ( annotations )
         {
-            RiaFontCache::FontSize oldFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize(oldFontSize);
-            RiaFontCache::FontSize newFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize(fontSize);
-            bool applyFontSizes = forceChange || !annotations->hasTextAnnotationsWithCustomFontSize(oldFontSizeEnum);
+            RiaFontCache::FontSize oldFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize( oldFontSize );
+            RiaFontCache::FontSize newFontSizeEnum = RiaFontCache::fontSizeEnumFromPointSize( fontSize );
+            bool applyFontSizes = forceChange || !annotations->hasTextAnnotationsWithCustomFontSize( oldFontSizeEnum );
 
-            if (applyFontSizes)
+            if ( applyFontSizes )
             {
-                anyChange = annotations->applyFontSizeToAllTextAnnotations(oldFontSizeEnum, newFontSizeEnum, forceChange) || anyChange;
+                anyChange = annotations->applyFontSizeToAllTextAnnotations( oldFontSizeEnum,
+                                                                            newFontSizeEnum,
+                                                                            forceChange ) ||
+                            anyChange;
             }
         }
     }
@@ -333,7 +381,7 @@ bool RimGridView::applyFontSize(RiaDefines::FontSettingType fontSettingType,
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 Rim3dOverlayInfoConfig* RimGridView::overlayInfoConfig() const
 {
@@ -345,82 +393,130 @@ Rim3dOverlayInfoConfig* RimGridView::overlayInfoConfig() const
 //--------------------------------------------------------------------------------------------------
 void RimGridView::updateViewFollowingRangeFilterUpdates()
 {
-    showGridCells(true);
+    showGridCells( true );
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 void RimGridView::initAfterRead()
 {
     Rim3dView::initAfterRead();
 
     RimProject* proj = nullptr;
-    firstAncestorOrThisOfType(proj);
-    if (proj && proj->isProjectFileVersionEqualOrOlderThan("2018.1.1"))
+    firstAncestorOrThisOfType( proj );
+    if ( proj && proj->isProjectFileVersionEqualOrOlderThan( "2018.1.1" ) )
     {
         // For version prior to 2018.1.1 : Grid visualization mode was derived from surfaceMode and meshMode
         // Current : Grid visualization mode is directly defined by m_gridCollection->isActive
         // This change was introduced in https://github.com/OPM/ResInsight/commit/f7bfe8d0
 
-        bool isGridVisualizationModeBefore_2018_1_1 = ((surfaceMode() == RimGridView::SURFACE) || (meshMode() == RiaDefines::FULL_MESH));
+        bool isGridVisualizationModeBefore_2018_1_1 = ( ( surfaceMode() == RimGridView::SURFACE ) ||
+                                                        ( meshMode() == RiaDefines::FULL_MESH ) );
 
-        m_gridCollection->setActive(isGridVisualizationModeBefore_2018_1_1);
-        if (!isGridVisualizationModeBefore_2018_1_1)
+        m_gridCollection->setActive( isGridVisualizationModeBefore_2018_1_1 );
+        if ( !isGridVisualizationModeBefore_2018_1_1 )
         {
-            // Was showing faults and intersections. 
-            // If was showing with mesh and/or surfaces, turn to full mesh/surf mode to show the mesh, 
+            // Was showing faults and intersections.
+            // If was showing with mesh and/or surfaces, turn to full mesh/surf mode to show the mesh,
             // and to avoid a strange setup when dropping out into grid mode again
-            if (surfaceMode() != RimGridView::NO_SURFACE) surfaceMode = RimGridView::SURFACE;
-            if (meshMode() != RiaDefines::NO_MESH) meshMode = RiaDefines::FULL_MESH;
+            if ( surfaceMode() != RimGridView::NO_SURFACE ) surfaceMode = RimGridView::SURFACE;
+            if ( meshMode() != RiaDefines::NO_MESH ) meshMode = RiaDefines::FULL_MESH;
         }
     }
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RimGridView::onTimeStepChanged()
+void RimGridView::onCreatePartCollectionFromSelection( cvf::Collection<cvf::Part>* parts )
 {
-    if (this->propertyFilterCollection() && this->propertyFilterCollection()->hasActiveDynamicFilters())
-    {  
-        m_currentReservoirCellVisibility = nullptr; 
+    Riu3dSelectionManager* riuSelManager = Riu3dSelectionManager::instance();
+
+    std::vector<RiuSelectionItem*> items;
+    riuSelManager->selectedItems( items );
+
+    for ( size_t i = 0; i < items.size(); i++ )
+    {
+        if ( items[i]->type() == RiuSelectionItem::GEOMECH_SELECTION_OBJECT )
+        {
+            RiuGeoMechSelectionItem* geomSelItem = static_cast<RiuGeoMechSelectionItem*>( items[i] );
+
+            if ( geomSelItem && geomSelItem->m_view == this && geomSelItem->m_resultDefinition->geoMechCase() )
+            {
+                RivSingleCellPartGenerator partGen( geomSelItem->m_resultDefinition->geoMechCase(),
+                                                    geomSelItem->m_gridIndex,
+                                                    geomSelItem->m_cellIndex,
+                                                    this->ownerCase()->displayModelOffset() );
+
+                cvf::ref<cvf::Part> part = partGen.createPart( geomSelItem->m_color );
+                part->setTransform( this->scaleTransform() );
+
+                parts->push_back( part.p() );
+            }
+        }
+
+        if ( items[i]->type() == RiuSelectionItem::ECLIPSE_SELECTION_OBJECT )
+        {
+            RiuEclipseSelectionItem* eclipseSelItem = static_cast<RiuEclipseSelectionItem*>( items[i] );
+
+            if ( eclipseSelItem && eclipseSelItem->m_view == this )
+            {
+                CVF_ASSERT( eclipseSelItem->m_resultDefinition->eclipseCase() );
+                CVF_ASSERT( eclipseSelItem->m_resultDefinition->eclipseCase()->eclipseCaseData() );
+
+                RivSingleCellPartGenerator partGen( eclipseSelItem->m_resultDefinition->eclipseCase()->eclipseCaseData(),
+                                                    eclipseSelItem->m_gridIndex,
+                                                    eclipseSelItem->m_gridLocalCellIndex,
+                                                    this->ownerCase()->displayModelOffset() );
+
+                cvf::ref<cvf::Part> part = partGen.createPart( eclipseSelItem->m_color );
+                part->setTransform( this->scaleTransform() );
+
+                parts->push_back( part.p() );
+            }
+        }
     }
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RimGridView::fieldChangedByUi(const caf::PdmFieldHandle* changedField, const QVariant& oldValue, const QVariant& newValue)
+void RimGridView::onClearReservoirCellVisibilitiesIfNeccessary()
+{
+    if ( this->propertyFilterCollection() && this->propertyFilterCollection()->hasActiveDynamicFilters() )
+    {
+        m_currentReservoirCellVisibility = nullptr;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridView::fieldChangedByUi( const caf::PdmFieldHandle* changedField,
+                                    const QVariant&            oldValue,
+                                    const QVariant&            newValue )
 {
     if ( changedField == &scaleZ )
     {
-        m_crossSectionCollection->updateIntersectionBoxGeometry();
+        m_intersectionCollection->updateIntersectionBoxGeometry();
     }
 
-    Rim3dView::fieldChangedByUi(changedField, oldValue, newValue);
+    Rim3dView::fieldChangedByUi( changedField, oldValue, newValue );
 
     if ( changedField == &scaleZ )
     {
         RimViewLinker* viewLinker = this->assosiatedViewLinker();
         if ( viewLinker )
         {
-            viewLinker->updateScaleZ(this, scaleZ);
-            viewLinker->updateCamera(this);
-        }
-    }
-    else if ( changedField == &m_currentTimeStep )
-    {
-        RimViewLinker* viewLinker = this->assosiatedViewLinker();
-        if ( viewLinker )
-        {
-            viewLinker->updateTimeStep(this, m_currentTimeStep);
+            viewLinker->updateScaleZ( this, scaleZ );
+            viewLinker->updateCamera( this );
         }
     }
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
 RimGridCollection* RimGridView::gridCollection() const
 {
@@ -428,24 +524,32 @@ RimGridCollection* RimGridView::gridCollection() const
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
 //--------------------------------------------------------------------------------------------------
-void RimGridView::selectOverlayInfoConfig()
+void RimGridView::clearReservoirCellVisibilities()
 {
-    Riu3DMainWindowTools::selectAsCurrentItem(m_overlayInfoConfig);
+    m_currentReservoirCellVisibility = nullptr;
 }
 
 //--------------------------------------------------------------------------------------------------
-/// 
+///
+//--------------------------------------------------------------------------------------------------
+void RimGridView::selectOverlayInfoConfig()
+{
+    Riu3DMainWindowTools::selectAsCurrentItem( m_overlayInfoConfig );
+}
+
+//--------------------------------------------------------------------------------------------------
+///
 //--------------------------------------------------------------------------------------------------
 RimViewLinker* RimGridView::viewLinkerIfMasterView() const
 {
     std::vector<RimViewLinker*> objects;
-    this->objectsWithReferringPtrFieldsOfType(objects);
+    this->objectsWithReferringPtrFieldsOfType( objects );
 
-    for (auto viewLinker : objects)
+    for ( auto viewLinker : objects )
     {
-        if (viewLinker)
+        if ( viewLinker )
         {
             return viewLinker;
         }
@@ -453,5 +557,3 @@ RimViewLinker* RimGridView::viewLinkerIfMasterView() const
 
     return nullptr;
 }
-
-
