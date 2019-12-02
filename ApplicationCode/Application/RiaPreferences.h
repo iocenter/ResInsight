@@ -95,6 +95,8 @@ public:
     bool        showSummaryTimeAsLongString() const;
     bool        useMultipleThreadsWhenReadingSummaryData() const;
 
+    bool forceDisplayOfIntersectionManipulators() const;
+
     std::map<RiaDefines::FontSettingType, RiaFontCache::FontSize> defaultFontSizes() const;
 
     void writePreferencesToApplicationStore();
@@ -187,6 +189,8 @@ private:
     caf::PdmField<QString>       m_plotTemplateFolders;
     caf::PdmField<bool>          m_searchPlotTemplateFoldersRecursively;
     caf::PdmField<caf::FilePath> m_defaultPlotTemplate;
+
+    caf::PdmField<bool> m_forceDisplayOfIntersectionManipulators;
 
     QStringList m_tabNames;
 };

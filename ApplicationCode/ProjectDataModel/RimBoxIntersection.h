@@ -97,6 +97,7 @@ private:
     void updateVisibility();
     void clampSinglePlaneValues();
     void switchSingelPlaneState();
+    void createBoxManipulator();
 
     void setFromOriginAndSize( const cvf::Vec3d& origin, const cvf::Vec3d& size );
 
