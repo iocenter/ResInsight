@@ -337,6 +337,15 @@ RiaPreferences::RiaPreferences( void )
                        "",
                        "" );
     m_useMultipleThreadsWhenLoadingSummaryData.uiCapability()->setUiLabelPosition( caf::PdmUiItemInfo::HIDDEN );
+
+    CAF_PDM_InitField( &m_forceDisplayOfIntersectionManipulators,
+                       "forceDisplayOfIntersectionManipulators",
+                       false,
+                       "Show 3D Manipulators for Intersections",
+                       "",
+                       "",
+                       "" );
+    m_forceDisplayOfIntersectionManipulators.uiCapability()->setUiLabelPosition( caf::PdmUiItemInfo::HIDDEN );
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -375,7 +384,8 @@ void RiaPreferences::defineEditorAttribute( const caf::PdmFieldHandle* field,
          field == &showLasCurveWithoutTvdWarning || field == &holoLensDisableCertificateVerification ||
          field == &m_showProjectChangedDialog || field == &m_searchPlotTemplateFoldersRecursively ||
          field == &showLegendBackground || field == &m_showSummaryTimeAsLongString ||
-         field == &m_showViewIdInProjectTree || field == &m_useMultipleThreadsWhenLoadingSummaryData )
+         field == &m_showViewIdInProjectTree || field == &m_useMultipleThreadsWhenLoadingSummaryData ||
+         field == &m_forceDisplayOfIntersectionManipulators )
     {
         caf::PdmUiCheckBoxEditorAttribute* myAttr = dynamic_cast<caf::PdmUiCheckBoxEditorAttribute*>( attribute );
         if ( myAttr )
@@ -428,6 +438,7 @@ void RiaPreferences::defineUiOrdering( QString uiConfigName, caf::PdmUiOrdering&
         otherGroup->add( &ssihubAddress );
         otherGroup->add( &showLasCurveWithoutTvdWarning );
         otherGroup->add( &holoLensDisableCertificateVerification );
+        otherGroup->add( &m_forceDisplayOfIntersectionManipulators );
     }
     else if ( uiConfigName == RiaPreferences::tabNameEclipse() )
     {
@@ -829,6 +840,14 @@ bool RiaPreferences::showSummaryTimeAsLongString() const
 bool RiaPreferences::useMultipleThreadsWhenReadingSummaryData() const
 {
     return m_useMultipleThreadsWhenLoadingSummaryData;
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+bool RiaPreferences::forceDisplayOfIntersectionManipulators() const
+{
+    return m_forceDisplayOfIntersectionManipulators;
 }
 
 //--------------------------------------------------------------------------------------------------

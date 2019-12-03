@@ -18,6 +18,9 @@
 
 #include "RimBoxIntersection.h"
 
+#include "RiaApplication.h"
+#include "RiaPreferences.h"
+
 #include "Rim3dView.h"
 #include "RimCase.h"
 #include "RimEclipseView.h"
@@ -145,6 +148,11 @@ void RimBoxIntersection::setFromOriginAndSize( const cvf::Vec3d& origin, const c
 //--------------------------------------------------------------------------------------------------
 bool RimBoxIntersection::show3dManipulator() const
 {
+    if ( RiaApplication::instance()->preferences()->forceDisplayOfIntersectionManipulators() )
+    {
+        return true;
+    }
+
     return m_show3DManipulator;
 }
 
@@ -226,6 +234,12 @@ RivBoxIntersectionPartMgr* RimBoxIntersection::intersectionBoxPartMgr()
 //--------------------------------------------------------------------------------------------------
 void RimBoxIntersection::appendManipulatorPartsToModel( cvf::ModelBasicList* model )
 {
+    if ( RiaApplication::instance()->preferences()->forceDisplayOfIntersectionManipulators() )
+    {
+        createBoxManipulator();
+        updateBoxManipulatorGeometry();
+    }
+
     if ( show3dManipulator() && m_boxManipulator )
     {
         m_boxManipulator->appendPartsToModel( model );
@@ -304,20 +318,7 @@ void RimBoxIntersection::fieldChangedByUi( const caf::PdmFieldHandle* changedFie
         {
             if ( viewer() )
             {
-                m_boxManipulator = new RicBoxManipulatorEventHandler( viewer() );
-
-                Rim3dView* rimView = nullptr;
-                this->firstAncestorOrThisOfType( rimView );
-                for ( Rim3dView* mainView : rimView->viewsUsingThisAsComparisonView() )
-                {
-                    m_boxManipulator->registerInAdditionalViewer( mainView->viewer() );
-                }
-
-                connect( m_boxManipulator, SIGNAL( notifyRedraw() ), this, SLOT( slotScheduleRedraw() ) );
-                connect( m_boxManipulator,
-                         SIGNAL( notifyUpdate( const cvf::Vec3d&, const cvf::Vec3d& ) ),
-                         this,
-                         SLOT( slotUpdateGeometry( const cvf::Vec3d&, const cvf::Vec3d& ) ) );
+                createBoxManipulator();
 
                 updateBoxManipulatorGeometry();
             }
@@ -629,6 +630,30 @@ void RimBoxIntersection::switchSingelPlaneState()
     }
 
     clampSinglePlaneValues();
+}
+
+//--------------------------------------------------------------------------------------------------
+///
+//--------------------------------------------------------------------------------------------------
+void RimBoxIntersection::createBoxManipulator()
+{
+    if ( m_boxManipulator.isNull() && viewer() )
+    {
+        m_boxManipulator = new RicBoxManipulatorEventHandler( viewer() );
+
+        Rim3dView* rimView = nullptr;
+        this->firstAncestorOrThisOfType( rimView );
+        for ( Rim3dView* mainView : rimView->viewsUsingThisAsComparisonView() )
+        {
+            m_boxManipulator->registerInAdditionalViewer( mainView->viewer() );
+        }
+
+        connect( m_boxManipulator, SIGNAL( notifyRedraw() ), this, SLOT( slotScheduleRedraw() ) );
+        connect( m_boxManipulator,
+                 SIGNAL( notifyUpdate( const cvf::Vec3d&, const cvf::Vec3d& ) ),
+                 this,
+                 SLOT( slotUpdateGeometry( const cvf::Vec3d&, const cvf::Vec3d& ) ) );
+    }
 }
 
 //--------------------------------------------------------------------------------------------------

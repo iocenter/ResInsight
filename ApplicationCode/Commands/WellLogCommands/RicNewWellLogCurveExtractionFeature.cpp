@@ -116,23 +116,13 @@ void RicNewWellLogCurveExtractionFeature::onActionTriggered( bool isChecked )
                 newWellLogPlotTrack->setFormationCase( view->ownerCase() );
             }
 
-            RimWellLogExtractionCurve* plotCurve = RicWellLogTools::addWellLogExtractionCurve( newWellLogPlotTrack,
-                                                                                               ownerCase,
-                                                                                               view,
-                                                                                               wellPath,
-                                                                                               simWell,
-                                                                                               branchIndex,
-                                                                                               useBranchDetection );
-
-            plotCurve->loadDataAndUpdate( true );
-
-            newWellLogPlotTrack->firstAncestorOrThisOfType( wellLogPlot );
-            if ( wellLogPlot && plotCurve->curveData() )
-            {
-                wellLogPlot->setDepthUnit( plotCurve->curveData()->depthUnit() );
-            }
-
-            plotCurve->updateConnectedEditors();
+            RicWellLogTools::addWellLogExtractionCurve( newWellLogPlotTrack,
+                                                        ownerCase,
+                                                        view,
+                                                        wellPath,
+                                                        simWell,
+                                                        branchIndex,
+                                                        useBranchDetection );
         }
     }
     RiuPlotMainWindowTools::refreshToolbars();
