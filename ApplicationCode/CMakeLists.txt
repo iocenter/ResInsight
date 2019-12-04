@@ -12,6 +12,8 @@ find_package( OpenGL )
 option(RESINSIGHT_ENABLE_GRPC "Enable the gRPC scripting framework" OFF)
 option(RESINSIGHT_GRPC_BUNDLE_PYTHON_MODULE "Bundle the gRPC python modules into the install folder" OFF)
 
+option(RESINSIGHT_BUILD_WITH_QT5 ON)
+
 if (RESINSIGHT_BUILD_WITH_QT5)
     find_package(Qt5 COMPONENTS Core QUIET)
 endif(RESINSIGHT_BUILD_WITH_QT5)
