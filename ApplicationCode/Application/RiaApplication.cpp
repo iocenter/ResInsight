@@ -1738,7 +1738,7 @@ void RiaApplication::savePlotWinGeoAndDockToolBarLayout()
 //--------------------------------------------------------------------------------------------------
 bool RiaApplication::enableDevelopmentFeatures()
 {
-    QString environmentVar = QProcessEnvironment::systemEnvironment().value("RESINSIGHT_DEVEL", QString("0"));
+    QString environmentVar = QProcessEnvironment::systemEnvironment().value("RESINSIGHT_DEVEL", QString("1"));
     return environmentVar.toInt() == 1;
 }
 
